@@ -1,0 +1,47 @@
+[project]
+name = "mob"
+version = "0.1.0"
+description = "A tool for orchestrating AI agents - cloud-native, provider agnostic"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "alembic>=1.13.0",
+    "asyncpg>=0.29.0",
+    "aiosqlite>=0.20.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.1.0",
+    "httpx>=0.27.0",
+    "kubernetes>=29.0.0",
+    "rich>=13.7.0",
+    "pyyaml>=6.0.0",
+    "python-jose[cryptography]>=3.3.0",
+]
+
+[project.scripts]
+mob = "mob.cli.main:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mob"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: marks tests as integration tests",
+    "k8s: marks tests requiring kubernetes",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-httpx>=0.30.0",
+    "coverage>=7.4.0",
+]
