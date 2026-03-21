@@ -1,0 +1,12 @@
+environment            = "staging"
+region                 = "us-east-1"
+vpc_cidr               = "10.1.0.0/16"
+db_instance_class      = "db.t3.medium"
+db_multi_az            = false
+db_backup_retention    = 3
+db_skip_final_snapshot = true
+eks_node_instance_type = "t3.medium"
+eks_desired_capacity   = 2
+eks_min_size           = 1
+eks_max_size           = 3
+api_replicas           = 2
