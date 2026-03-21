@@ -3,12 +3,12 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = { Name = "${var.project}-vpc" }
+  tags = { Name = "${local.prefix}-vpc" }
 }
 
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
-  tags   = { Name = "${var.project}-igw" }
+  tags   = { Name = "${local.prefix}-igw" }
 }
 
 resource "aws_subnet" "public" {
@@ -19,9 +19,9 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name                                          = "${var.project}-public-${local.azs[count.index]}"
-    "kubernetes.io/role/elb"                      = "1"
-    "kubernetes.io/cluster/${var.project}-cluster" = "shared"
+    Name                                             = "${local.prefix}-public-${local.azs[count.index]}"
+    "kubernetes.io/role/elb"                         = "1"
+    "kubernetes.io/cluster/${local.prefix}-cluster"  = "shared"
   }
 }
 
@@ -32,28 +32,28 @@ resource "aws_subnet" "private" {
   availability_zone = local.azs[count.index]
 
   tags = {
-    Name                                          = "${var.project}-private-${local.azs[count.index]}"
-    "kubernetes.io/role/internal-elb"             = "1"
-    "kubernetes.io/cluster/${var.project}-cluster" = "shared"
+    Name                                                = "${local.prefix}-private-${local.azs[count.index]}"
+    "kubernetes.io/role/internal-elb"                   = "1"
+    "kubernetes.io/cluster/${local.prefix}-cluster"     = "shared"
   }
 }
 
 resource "aws_eip" "nat" {
   domain = "vpc"
-  tags   = { Name = "${var.project}-nat-eip" }
+  tags   = { Name = "${local.prefix}-nat-eip" }
 }
 
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id
   subnet_id     = aws_subnet.public[0].id
-  tags          = { Name = "${var.project}-nat" }
+  tags          = { Name = "${local.prefix}-nat" }
 
   depends_on = [aws_internet_gateway.main]
 }
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
-  tags   = { Name = "${var.project}-public-rt" }
+  tags   = { Name = "${local.prefix}-public-rt" }
 
   route {
     cidr_block = "0.0.0.0/0"
@@ -63,7 +63,7 @@ resource "aws_route_table" "public" {
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
-  tags   = { Name = "${var.project}-private-rt" }
+  tags   = { Name = "${local.prefix}-private-rt" }
 
   route {
     cidr_block     = "0.0.0.0/0"

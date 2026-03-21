@@ -14,7 +14,7 @@ metadata:
   namespace: mob
 type: Opaque
 stringData:
-  POSTGRES_PASSWORD: changeme
+  POSTGRES_PASSWORD: dev-changeme
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

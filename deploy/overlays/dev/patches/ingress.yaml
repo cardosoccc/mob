@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mob-api
+  namespace: mob
+spec:
+  rules:
+    - host: mob.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mob-api
+                port:
+                  number: 8080

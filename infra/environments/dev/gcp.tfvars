@@ -1,0 +1,12 @@
+environment            = "dev"
+gcp_project_id         = "mob-dev"
+region                 = "us-central1"
+db_tier                = "db-f1-micro"
+db_high_availability   = false
+db_backup_enabled      = false
+db_deletion_protection = false
+gke_machine_type       = "e2-small"
+gke_node_count         = 1
+gke_min_node_count     = 1
+gke_max_node_count     = 2
+api_replicas           = 1
