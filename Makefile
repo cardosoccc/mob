@@ -1,5 +1,7 @@
 .PHONY: setup build test run lint format deploy clean install \
        dev-up dev-down dev-logs \
+       dev-kind-up dev-kind-down dev-kind-status dev-kind-logs \
+       dev-kind-psql dev-kind-rebuild dev-kind-reset \
        deploy-dev deploy-staging deploy-production \
        infra-init-aws infra-init-gcp \
        infra-plan-aws infra-plan-gcp \
@@ -10,6 +12,7 @@ UV := uv
 APP_IMAGE := mob-api
 APP_TAG := latest
 KIND_CLUSTER := mob-local
+KIND_CTX := kind-$(KIND_CLUSTER)
 ENV ?= dev
 
 ## setup: install dependencies and dev tools
@@ -40,15 +43,38 @@ dev-down:
 dev-logs:
 	docker compose logs -f
 
-## run: launch the application locally with kind cluster
-run: build
-	@echo "--- Ensuring kind cluster '$(KIND_CLUSTER)' exists ---"
-	kind get clusters | grep -q $(KIND_CLUSTER) || kind create cluster --name $(KIND_CLUSTER)
+## run: launch the application locally with kind cluster (legacy alias for dev-kind-up)
+run: dev-kind-up
+
+## dev-kind-up: create Kind cluster with local PostgreSQL and deploy the app
+dev-kind-up:
+	./scripts/dev-setup.sh setup
+
+## dev-kind-down: tear down the Kind cluster and all resources
+dev-kind-down:
+	./scripts/dev-setup.sh teardown
+
+## dev-kind-status: show pod and service status in the local cluster
+dev-kind-status:
+	./scripts/dev-setup.sh status
+
+## dev-kind-logs: tail API pod logs
+dev-kind-logs:
+	kubectl --context $(KIND_CTX) -n mob logs -f -l app.kubernetes.io/component=api
+
+## dev-kind-psql: open a psql shell against the local PostgreSQL
+dev-kind-psql:
+	docker exec -it mob-postgres psql -U mob_admin -d mob
+
+## dev-kind-rebuild: rebuild the Docker image and redeploy to the Kind cluster
+dev-kind-rebuild: build
 	kind load docker-image $(APP_IMAGE):$(APP_TAG) --name $(KIND_CLUSTER)
-	kubectl --context kind-$(KIND_CLUSTER) apply -k deploy/overlays/dev/
-	@echo "--- Waiting for deployment rollout ---"
-	kubectl --context kind-$(KIND_CLUSTER) -n mob rollout status deployment/mob-api --timeout=120s
-	@echo "--- Application running. Port-forward with: kubectl --context kind-$(KIND_CLUSTER) -n mob port-forward svc/mob-api 8080:8080 ---"
+	kubectl --context $(KIND_CTX) -n mob rollout restart deployment/mob-api
+	kubectl --context $(KIND_CTX) -n mob rollout status deployment/mob-api --timeout=120s
+
+## dev-kind-reset: destroy and recreate the full local environment
+dev-kind-reset:
+	./scripts/dev-setup.sh reset
 
 ## lint: run flake8 and mypy
 lint:
