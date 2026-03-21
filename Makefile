@@ -62,9 +62,9 @@ dev-kind-status:
 dev-kind-logs:
 	kubectl --context $(KIND_CTX) -n mob logs -f -l app.kubernetes.io/component=api
 
-## dev-kind-psql: open a psql shell against the in-cluster PostgreSQL
+## dev-kind-psql: open a psql shell against the local PostgreSQL
 dev-kind-psql:
-	kubectl --context $(KIND_CTX) -n mob exec -it statefulset/postgres -- psql -U mob_admin -d mob
+	docker exec -it mob-postgres psql -U mob_admin -d mob
 
 ## dev-kind-rebuild: rebuild the Docker image and redeploy to the Kind cluster
 dev-kind-rebuild: build

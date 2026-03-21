@@ -14,7 +14,3 @@ nodes:
       - containerPort: 30080
         hostPort: 8080
         protocol: TCP
-      # PostgreSQL access via localhost:5432
-      - containerPort: 30432
-        hostPort: 5432
-        protocol: TCP
