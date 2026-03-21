@@ -3,9 +3,6 @@ kind: Service
 metadata:
   name: mob-api
   namespace: mob
-  labels:
-    app.kubernetes.io/name: mob
-    app.kubernetes.io/component: api
 spec:
   type: ClusterIP
   selector:

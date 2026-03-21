@@ -1,0 +1,12 @@
+environment            = "production"
+gcp_project_id         = "mob-production"
+region                 = "us-central1"
+db_tier                = "db-custom-4-16384"
+db_high_availability   = true
+db_backup_enabled      = true
+db_deletion_protection = true
+gke_machine_type       = "e2-standard-4"
+gke_node_count         = 2
+gke_min_node_count     = 2
+gke_max_node_count     = 6
+api_replicas           = 3

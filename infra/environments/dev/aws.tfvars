@@ -1,0 +1,12 @@
+environment            = "dev"
+region                 = "us-east-1"
+vpc_cidr               = "10.0.0.0/16"
+db_instance_class      = "db.t3.micro"
+db_multi_az            = false
+db_backup_retention    = 1
+db_skip_final_snapshot = true
+eks_node_instance_type = "t3.small"
+eks_desired_capacity   = 1
+eks_min_size           = 1
+eks_max_size           = 2
+api_replicas           = 1

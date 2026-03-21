@@ -3,15 +3,12 @@ kind: Ingress
 metadata:
   name: mob-api
   namespace: mob
-  labels:
-    app.kubernetes.io/name: mob
-    app.kubernetes.io/component: api
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
   rules:
-    - host: mob.local
+    - host: mob.example.com
       http:
         paths:
           - path: /
