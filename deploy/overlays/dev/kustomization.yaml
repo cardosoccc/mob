@@ -5,7 +5,6 @@ namespace: mob
 
 resources:
   - ../../base
-  - postgres.yaml
 
 commonLabels:
   app.kubernetes.io/instance: dev
