@@ -1,21 +1,7 @@
 services:
-  api:
-    build: .
-    ports:
-      - "8080:8080"
-    environment:
-      MOB_DATABASE_URL: "postgresql+asyncpg://mob_admin:localdev@postgres:5432/mob"
-      MOB_API_HOST: "0.0.0.0"
-      MOB_API_PORT: "8080"
-      MOB_DEBUG: "true"
-      MOB_KUBERNETES_NAMESPACE: "mob"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
   postgres:
     image: postgres:16-alpine
+    container_name: mob-postgres
     ports:
       - "5432:5432"
     environment:
@@ -30,6 +16,12 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - mob-dev
 
 volumes:
   postgres_data:
+
+networks:
+  mob-dev:
+    name: mob-dev
