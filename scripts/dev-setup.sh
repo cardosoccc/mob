@@ -21,7 +21,7 @@ APP_IMAGE="mob-api"
 APP_TAG="latest"
 NAMESPACE="mob"
 KUBE_CTX="kind-${KIND_CLUSTER}"
-COMPOSE_FILE="docker-compose.dev.yaml"
+COMPOSE_FILE="docker-compose.yaml"
 DOCKER_NETWORK="mob-dev"
 POSTGRES_CONTAINER="mob-postgres"
 
