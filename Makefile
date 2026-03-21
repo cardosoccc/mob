@@ -1,4 +1,4 @@
-.PHONY: setup build test run lint format deploy clean \
+.PHONY: setup build test run lint format deploy clean install \
        dev-up dev-down dev-logs \
        deploy-dev deploy-staging deploy-production \
        infra-init-aws infra-init-gcp \
@@ -15,6 +15,10 @@ ENV ?= dev
 ## setup: install dependencies and dev tools
 setup:
 	$(UV) sync --frozen
+
+## install: install the mob CLI into the local environment
+install:
+	$(UV) tool install --force --editable .
 
 ## build: build the Docker image
 build:
