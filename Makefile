@@ -31,17 +31,14 @@ build:
 test:
 	$(UV) run pytest tests/ -v
 
-## dev-up: start local development environment with docker-compose
-dev-up:
-	docker compose up -d --build
+## dev-up: start local development environment (Kind + PostgreSQL)
+dev-up: dev-kind-up
 
 ## dev-down: stop local development environment
-dev-down:
-	docker compose down
+dev-down: dev-kind-down
 
 ## dev-logs: tail logs from local development environment
-dev-logs:
-	docker compose logs -f
+dev-logs: dev-kind-logs
 
 ## run: launch the application locally with kind cluster (legacy alias for dev-kind-up)
 run: dev-kind-up
