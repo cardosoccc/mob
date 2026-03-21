@@ -5,9 +5,8 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Deployment environment"
+  description = "Deployment environment (dev, staging, production)"
   type        = string
-  default     = "production"
 }
 
 variable "region" {
@@ -40,6 +39,24 @@ variable "db_username" {
   default     = "mob_admin"
 }
 
+variable "db_multi_az" {
+  description = "Enable Multi-AZ for RDS"
+  type        = bool
+  default     = false
+}
+
+variable "db_backup_retention" {
+  description = "RDS backup retention period in days"
+  type        = number
+  default     = 7
+}
+
+variable "db_skip_final_snapshot" {
+  description = "Skip final snapshot on RDS deletion"
+  type        = bool
+  default     = false
+}
+
 variable "eks_node_instance_type" {
   description = "EKS node instance type"
   type        = string
@@ -62,4 +79,10 @@ variable "eks_max_size" {
   description = "Maximum number of EKS worker nodes"
   type        = number
   default     = 4
+}
+
+variable "api_replicas" {
+  description = "Number of API replicas"
+  type        = number
+  default     = 2
 }

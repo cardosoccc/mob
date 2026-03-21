@@ -1,0 +1,12 @@
+environment            = "production"
+region                 = "us-east-1"
+vpc_cidr               = "10.2.0.0/16"
+db_instance_class      = "db.r6g.large"
+db_multi_az            = true
+db_backup_retention    = 14
+db_skip_final_snapshot = false
+eks_node_instance_type = "t3.large"
+eks_desired_capacity   = 3
+eks_min_size           = 2
+eks_max_size           = 6
+api_replicas           = 3

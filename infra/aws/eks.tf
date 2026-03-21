@@ -1,5 +1,5 @@
 resource "aws_iam_role" "eks_cluster" {
-  name = "${var.project}-eks-cluster-role"
+  name = "${local.prefix}-eks-cluster-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -17,7 +17,7 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
 }
 
 resource "aws_eks_cluster" "main" {
-  name     = "${var.project}-cluster"
+  name     = "${local.prefix}-cluster"
   role_arn = aws_iam_role.eks_cluster.arn
   version  = "1.29"
 
@@ -31,7 +31,7 @@ resource "aws_eks_cluster" "main" {
 }
 
 resource "aws_iam_role" "eks_nodes" {
-  name = "${var.project}-eks-node-role"
+  name = "${local.prefix}-eks-node-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -60,7 +60,7 @@ resource "aws_iam_role_policy_attachment" "ecr_read" {
 
 resource "aws_eks_node_group" "main" {
   cluster_name    = aws_eks_cluster.main.name
-  node_group_name = "${var.project}-nodes"
+  node_group_name = "${local.prefix}-nodes"
   node_role_arn   = aws_iam_role.eks_nodes.arn
   subnet_ids      = aws_subnet.private[*].id
   instance_types  = [var.eks_node_instance_type]

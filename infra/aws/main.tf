@@ -11,5 +11,6 @@ provider "aws" {
 }
 
 locals {
-  azs = ["${var.region}a", "${var.region}b"]
+  azs    = ["${var.region}a", "${var.region}b"]
+  prefix = "${var.project}-${var.environment}"
 }

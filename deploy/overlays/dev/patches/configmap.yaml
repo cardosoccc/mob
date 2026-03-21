@@ -3,10 +3,8 @@ kind: ConfigMap
 metadata:
   name: mob-config
   namespace: mob
-  labels:
-    app.kubernetes.io/name: mob
 data:
   MOB_API_HOST: "0.0.0.0"
   MOB_API_PORT: "8080"
   MOB_KUBERNETES_NAMESPACE: "mob"
-  MOB_DEBUG: "false"
+  MOB_DEBUG: "true"

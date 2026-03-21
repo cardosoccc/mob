@@ -1,0 +1,35 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      MOB_DATABASE_URL: "postgresql+asyncpg://mob_admin:localdev@postgres:5432/mob"
+      MOB_API_HOST: "0.0.0.0"
+      MOB_API_PORT: "8080"
+      MOB_DEBUG: "true"
+      MOB_KUBERNETES_NAMESPACE: "mob"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: mob
+      POSTGRES_USER: mob_admin
+      POSTGRES_PASSWORD: localdev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mob_admin -d mob"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

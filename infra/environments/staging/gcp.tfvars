@@ -1,0 +1,12 @@
+environment            = "staging"
+gcp_project_id         = "mob-staging"
+region                 = "us-central1"
+db_tier                = "db-custom-2-4096"
+db_high_availability   = false
+db_backup_enabled      = true
+db_deletion_protection = false
+gke_machine_type       = "e2-medium"
+gke_node_count         = 1
+gke_min_node_count     = 1
+gke_max_node_count     = 3
+api_replicas           = 2
