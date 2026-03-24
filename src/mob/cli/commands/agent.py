@@ -111,58 +111,15 @@ def agent_show(ref: str, domain_id: str | None):
 @click.argument("ref")
 @agent_filters
 @click.option("--task", "task_id", help="Task ID to associate with the run")
-def agent_run(ref: str, domain_id: str | None, task_id: str | None):
+@click.option("--name", "run_name", help="Custom name for the run (default: agent-name + random suffix)")
+def agent_run_cmd(ref: str, domain_id: str | None, task_id: str | None, run_name: str | None):
     """Run an instance of an agent. REF is a name or position number."""
     agent_id = resolve_ref("agent", ref, domain_id=domain_id)
     payload = {"agent_id": agent_id}
     if task_id:
         payload["task_id"] = task_id
+    if run_name:
+        payload["name"] = run_name
     data = api_post("/agent-runs", payload)
-    print_success(f"Agent run '{data['id']}' created (state: {data['state']}).")
+    print_success(f"Agent run '{data['name']}' created (state: {data['state']}).")
     print_detail(data)
-
-
-@agent.command("stop")
-@click.argument("run_id")
-def agent_stop(run_id: str):
-    """Stop a running agent instance."""
-    data = api_post(f"/agent-runs/{run_id}/stop")
-    print_success(f"Agent run '{run_id}' stopped.")
-    print_detail(data)
-
-
-@agent.command("logs")
-@click.argument("run_id")
-@click.option("--tail", default=100, help="Number of log lines")
-def agent_logs(run_id: str, tail: int):
-    """Show logs of an agent run."""
-    data = api_get(f"/agent-runs/{run_id}/logs", params={"tail": tail})
-    status = data.get("status", {})
-    if status:
-        click.echo(f"State: {status.get('state', 'unknown')}")
-        if status.get("podName"):
-            click.echo(f"Pod: {status['podName']}")
-        if status.get("errorMessage"):
-            click.echo(f"Error: {status['errorMessage']}")
-    else:
-        click.echo("No live status available (K8s may not be configured).")
-
-
-@agent.command("attach")
-@click.argument("run_id")
-def agent_attach(run_id: str):
-    """Attach to an agent's pod (not yet implemented)."""
-    click.echo("Error: Interactive attach is not yet implemented.", err=True)
-    click.echo("It requires websocket streaming support.", err=True)
-    raise SystemExit(1)
-
-
-@agent.command("send")
-@click.argument("agent_id")
-@click.option("--run", "run_id", required=True, help="Agent run ID")
-@click.option("--message", required=True, help="Message to send to the agent")
-def agent_send(agent_id: str, run_id: str, message: str):
-    """Send a message to a running agent (not yet implemented)."""
-    click.echo("Error: Message delivery is not yet implemented.", err=True)
-    click.echo("Requires designing the pod-to-orchestrator communication protocol.", err=True)
-    raise SystemExit(1)
