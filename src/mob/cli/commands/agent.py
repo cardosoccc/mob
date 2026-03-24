@@ -123,29 +123,28 @@ def agent_stop(run_id: str):
 
 @agent.command("logs")
 @click.argument("run_id")
-def agent_logs(run_id: str):
+@click.option("--tail", default=100, help="Number of log lines")
+def agent_logs(run_id: str, tail: int):
     """Show logs of an agent run."""
-    # Get the agent run to find pod name
-    run_data = api_get(f"/agent-runs/{run_id}")
-    pod_name = run_data.get("pod_name")
-    if not pod_name:
-        click.echo("No pod associated with this run yet.")
-        return
-    click.echo(f"Logs for pod {pod_name}:")
-    click.echo("(Kubernetes log streaming requires direct k8s access)")
+    data = api_get(f"/agent-runs/{run_id}/logs", params={"tail": tail})
+    status = data.get("status", {})
+    if status:
+        click.echo(f"State: {status.get('state', 'unknown')}")
+        if status.get("podName"):
+            click.echo(f"Pod: {status['podName']}")
+        if status.get("errorMessage"):
+            click.echo(f"Error: {status['errorMessage']}")
+    else:
+        click.echo("No live status available (K8s may not be configured).")
 
 
 @agent.command("attach")
 @click.argument("run_id")
 def agent_attach(run_id: str):
-    """Attach to an agent's pod."""
-    run_data = api_get(f"/agent-runs/{run_id}")
-    pod_name = run_data.get("pod_name")
-    if not pod_name:
-        click.echo("No pod associated with this run yet.")
-        return
-    click.echo(f"Attaching to pod {pod_name}...")
-    click.echo("(Interactive attach requires direct k8s access)")
+    """Attach to an agent's pod (not yet implemented)."""
+    click.echo("Error: Interactive attach is not yet implemented.", err=True)
+    click.echo("It requires websocket streaming support.", err=True)
+    raise SystemExit(1)
 
 
 @agent.command("send")
@@ -153,9 +152,7 @@ def agent_attach(run_id: str):
 @click.option("--run", "run_id", required=True, help="Agent run ID")
 @click.option("--message", required=True, help="Message to send to the agent")
 def agent_send(agent_id: str, run_id: str, message: str):
-    """Send a message to a running agent."""
-    data = api_post(f"/agents/{agent_id}/send", {"message": message, "run_id": run_id})
-    if data:
-        print_detail(data)
-    else:
-        print_success("Message sent.")
+    """Send a message to a running agent (not yet implemented)."""
+    click.echo("Error: Message delivery is not yet implemented.", err=True)
+    click.echo("Requires designing the pod-to-orchestrator communication protocol.", err=True)
+    raise SystemExit(1)
