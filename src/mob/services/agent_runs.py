@@ -1,5 +1,6 @@
 """AgentRun service."""
 
+import asyncio
 import logging
 import secrets
 
@@ -25,16 +26,40 @@ VALID_TRANSITIONS: dict[AgentRunState, set[AgentRunState]] = {
     AgentRunState.FAILED: set(),
 }
 
+# Cached K8s API clients (initialized on first use)
+_k8s_custom_api = None
+_k8s_core_api = None
+_k8s_config_loaded = False
+
+# Reusable HTTP client for agent pod communication
+_http_client: httpx.AsyncClient | None = None
+
+AGENT_HTTP_PORT = 8081
+
+
+def _load_k8s_config():
+    """Load K8s config once (in-cluster or kubeconfig)."""
+    global _k8s_config_loaded
+    if _k8s_config_loaded:
+        return
+    from kubernetes import config as k8s_config
+    try:
+        k8s_config.load_incluster_config()
+    except k8s_config.ConfigException:
+        k8s_config.load_kube_config()
+    _k8s_config_loaded = True
+
 
 def _try_get_k8s_custom_api():
-    """Try to get a Kubernetes CustomObjectsApi client. Returns None if unavailable."""
+    """Try to get a cached Kubernetes CustomObjectsApi client. Returns None if unavailable."""
+    global _k8s_custom_api
+    if _k8s_custom_api is not None:
+        return _k8s_custom_api
     try:
-        from kubernetes import client as k8s_client, config as k8s_config
-        try:
-            k8s_config.load_incluster_config()
-        except k8s_config.ConfigException:
-            k8s_config.load_kube_config()
-        return k8s_client.CustomObjectsApi()
+        from kubernetes import client as k8s_client
+        _load_k8s_config()
+        _k8s_custom_api = k8s_client.CustomObjectsApi()
+        return _k8s_custom_api
     except Exception:
         return None
 
@@ -205,20 +230,21 @@ async def update_agent_run_state(
 
 
 def _try_get_k8s_core_api():
-    """Try to get a Kubernetes CoreV1Api client. Returns None if unavailable."""
+    """Try to get a cached Kubernetes CoreV1Api client. Returns None if unavailable."""
+    global _k8s_core_api
+    if _k8s_core_api is not None:
+        return _k8s_core_api
     try:
-        from kubernetes import client as k8s_client, config as k8s_config
-        try:
-            k8s_config.load_incluster_config()
-        except k8s_config.ConfigException:
-            k8s_config.load_kube_config()
-        return k8s_client.CoreV1Api()
+        from kubernetes import client as k8s_client
+        _load_k8s_config()
+        _k8s_core_api = k8s_client.CoreV1Api()
+        return _k8s_core_api
     except Exception:
         return None
 
 
-def _get_pod_ip(pod_name: str) -> str:
-    """Look up the cluster IP of a pod by name."""
+def _get_pod_ip_sync(pod_name: str) -> str:
+    """Look up the cluster IP of a pod by name (synchronous)."""
     core_api = _try_get_k8s_core_api()
     if not core_api:
         raise ServiceError("Kubernetes is not available", 503)
@@ -234,6 +260,16 @@ def _get_pod_ip(pod_name: str) -> str:
     if not pod_ip:
         raise ServiceError(f"Pod {pod_name} has no IP assigned", 502)
     return pod_ip
+
+
+def _get_http_client() -> httpx.AsyncClient:
+    """Get a reusable HTTP client for agent pod communication."""
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=120.0, write=5.0, pool=5.0)
+        )
+    return _http_client
 
 
 async def send_message(
@@ -256,26 +292,35 @@ async def send_message(
     if not pod_name:
         raise ServiceError("Agent pod name not available", 502)
 
-    # Get pod IP and forward the message
-    pod_ip = _get_pod_ip(pod_name)
+    # Get pod IP (run sync K8s call in thread to avoid blocking event loop)
+    pod_ip = await asyncio.to_thread(_get_pod_ip_sync, pod_name)
+
+    # Forward message to agent pod
+    headers = {}
+    auth_token = get_settings().agent_auth_token if hasattr(get_settings(), "agent_auth_token") else None
+    if auth_token:
+        headers["Authorization"] = f"Bearer {auth_token}"
 
     try:
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=5.0, read=120.0, write=5.0, pool=5.0)
-        ) as client:
-            resp = await client.post(
-                f"http://{pod_ip}:8081/message",
-                json={"message": message},
-            )
+        client = _get_http_client()
+        resp = await client.post(
+            f"http://{pod_ip}:{AGENT_HTTP_PORT}/message",
+            json={"message": message},
+            headers=headers,
+        )
     except httpx.ConnectError:
         raise ServiceError("Agent is unreachable", 502)
     except httpx.TimeoutException:
         raise ServiceError("Agent request timed out", 504)
 
     if resp.status_code == 409:
-        raise ServiceError("Agent is busy", 409)
+        data = resp.json()
+        raise ServiceError(data.get("error", "Agent is busy"), 409)
+
+    if resp.status_code == 401:
+        raise ServiceError("Agent authentication failed", 502)
 
     if resp.status_code != 200:
-        raise ServiceError(f"Agent returned error: {resp.text}", 502)
+        raise ServiceError("Agent returned an error", 502)
 
     return resp.json()

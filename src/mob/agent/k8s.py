@@ -1,9 +1,12 @@
 """Kubernetes helpers for agent self-annotation."""
 
+import asyncio
 import logging
 import os
 
 logger = logging.getLogger(__name__)
+
+_core_api = None
 
 
 def _get_pod_identity() -> tuple[str, str]:
@@ -18,26 +21,37 @@ def _get_pod_identity() -> tuple[str, str]:
     return pod_name, namespace
 
 
-def patch_own_annotation(state: str) -> None:
-    """Patch this pod's mob.io/agent-state annotation.
+def _get_core_api():
+    """Get a cached CoreV1Api client."""
+    global _core_api
+    if _core_api is not None:
+        return _core_api
 
-    Uses the in-cluster Kubernetes client to PATCH the pod's metadata.
-    """
     from kubernetes import client as k8s_client, config as k8s_config
-
-    pod_name, namespace = _get_pod_identity()
 
     try:
         k8s_config.load_incluster_config()
     except k8s_config.ConfigException:
         k8s_config.load_kube_config()
 
-    v1 = k8s_client.CoreV1Api()
+    _core_api = k8s_client.CoreV1Api()
+    return _core_api
+
+
+def patch_own_annotation(state: str) -> None:
+    """Patch this pod's mob.io/agent-state annotation (synchronous)."""
+    pod_name, namespace = _get_pod_identity()
+    v1 = _get_core_api()
     body = {"metadata": {"annotations": {"mob.io/agent-state": state}}}
 
     try:
         v1.patch_namespaced_pod(name=pod_name, namespace=namespace, body=body)
-        logger.info(f"Patched pod annotation mob.io/agent-state={state}")
+        logger.info("Patched pod annotation mob.io/agent-state=%s", state)
     except Exception:
-        logger.exception(f"Failed to patch pod annotation to {state}")
+        logger.exception("Failed to patch pod annotation to %s", state)
         raise
+
+
+async def patch_own_annotation_async(state: str) -> None:
+    """Patch this pod's mob.io/agent-state annotation (non-blocking)."""
+    await asyncio.to_thread(patch_own_annotation, state)

@@ -15,7 +15,7 @@ spec:
         app.kubernetes.io/name: mob
         app.kubernetes.io/component: api
     spec:
-      serviceAccountName: mob-operator
+      serviceAccountName: mob-api
       containers:
         - name: mob-api
           image: mob-api:latest

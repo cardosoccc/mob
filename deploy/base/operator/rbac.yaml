@@ -8,7 +8,7 @@ rules:
     verbs: ["get", "list", "watch", "create", "patch"]
   - apiGroups: ["mob.io"]
     resources: ["agentruns"]
-    verbs: ["get", "list", "watch", "create", "patch", "delete"]
+    verbs: ["get", "list", "watch", "patch"]
   - apiGroups: ["mob.io"]
     resources: ["agentruns/status"]
     verbs: ["get", "patch"]
