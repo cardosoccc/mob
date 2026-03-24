@@ -39,7 +39,17 @@ async def init_db(database_url: str | None = None) -> None:
         await conn.run_sync(_add_missing_columns)
 
 
-def _add_missing_columns(conn) -> None:
+async def migrate_db(database_url: str | None = None) -> list[str]:
+    """Run schema migrations explicitly. Returns list of actions taken."""
+    engine = get_engine(database_url)
+    actions: list[str] = []
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(lambda c: _add_missing_columns(c, actions=actions))
+    return actions
+
+
+def _add_missing_columns(conn, actions: list[str] | None = None) -> None:
     """Add columns that create_all won't add to existing tables.
 
     SQLite cannot add NOT NULL columns without a default to tables with
@@ -58,13 +68,19 @@ def _add_missing_columns(conn) -> None:
                 conn.execute(text(
                     f"ALTER TABLE {table.name} ADD COLUMN {column.name} {col_type}"
                 ))
+                if actions is not None:
+                    actions.append(f"Added column: {table.name}.{column.name} ({col_type})")
                 # Backfill NULLs with a generated value based on the row id
                 if not column.nullable:
-                    conn.execute(text(
+                    result = conn.execute(text(
                         f"UPDATE {table.name} SET {column.name} = "
                         f"'{table.name}-' || substr(id, 1, 8) "
                         f"WHERE {column.name} IS NULL"
                     ))
+                    if actions is not None and result.rowcount:
+                        actions.append(
+                            f"Backfilled {table.name}.{column.name} for {result.rowcount} rows"
+                        )
 
 
 async def close_db() -> None:

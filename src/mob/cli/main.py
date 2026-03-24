@@ -11,6 +11,7 @@ from mob.cli.commands.agent_run import agent_run, agent_runs
 from mob.cli.commands.skill import skill, skills
 from mob.cli.commands.config_cmd import config, configs
 from mob.cli.commands.init_cmd import init
+from mob.cli.commands.migrate_cmd import migrate
 from mob.cli.commands.server import serve
 
 
@@ -38,6 +39,7 @@ cli.add_command(skill)
 cli.add_command(configs)
 cli.add_command(config)
 cli.add_command(init)
+cli.add_command(migrate)
 cli.add_command(serve)
 
 
