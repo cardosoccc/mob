@@ -5,7 +5,8 @@
        deploy-dev deploy-staging deploy-production \
        infra-init-aws infra-init-gcp \
        infra-plan-aws infra-plan-gcp \
-       infra-apply-aws infra-apply-gcp
+       infra-apply-aws infra-apply-gcp \
+       migrate
 
 PYTHON := python3
 UV := uv
@@ -18,6 +19,10 @@ ENV ?= dev
 ## setup: install dependencies and dev tools
 setup:
 	$(UV) sync --frozen
+
+## migrate: run database schema migrations
+migrate:
+	$(UV) run mob migrate
 
 ## install: install the mob CLI into the local environment
 install:
