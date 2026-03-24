@@ -4,6 +4,7 @@ import click
 
 from mob.cli.client import api_delete, api_get, api_post, api_put
 from mob.cli.output import print_detail, print_success, print_table
+from mob.cli.resolver import resolve_ref
 
 
 @click.command("users")
@@ -30,11 +31,12 @@ def user_create(email: str, name: str):
 
 
 @user.command("edit")
-@click.argument("user_id")
+@click.argument("ref")
 @click.option("--name", help="New display name")
 @click.option("--email", help="New email")
-def user_edit(user_id: str, name: str | None, email: str | None):
-    """Edit a user."""
+def user_edit(ref: str, name: str | None, email: str | None):
+    """Edit a user. REF is an email or position number."""
+    user_id = resolve_ref("user", ref)
     payload = {}
     if name:
         payload["name"] = name
@@ -46,35 +48,39 @@ def user_edit(user_id: str, name: str | None, email: str | None):
 
 
 @user.command("delete")
-@click.argument("user_id")
+@click.argument("ref")
 @click.confirmation_option(prompt="Are you sure you want to delete this user?")
-def user_delete(user_id: str):
-    """Delete a user."""
+def user_delete(ref: str):
+    """Delete a user. REF is an email or position number."""
+    user_id = resolve_ref("user", ref)
     api_delete(f"/users/{user_id}")
     print_success("User deleted.")
 
 
 @user.command("show")
-@click.argument("user_id")
-def user_show(user_id: str):
-    """Show details of a user."""
+@click.argument("ref")
+def user_show(ref: str):
+    """Show details of a user. REF is an email or position number."""
+    user_id = resolve_ref("user", ref)
     data = api_get(f"/users/{user_id}")
     print_detail(data)
 
 
 @user.command("grant")
-@click.argument("user_id")
+@click.argument("ref")
 @click.option("--group", "group_id", required=True, help="Group ID to grant access to")
-def user_grant(user_id: str, group_id: str):
-    """Grant a user access to a group."""
+def user_grant(ref: str, group_id: str):
+    """Grant a user access to a group. REF is an email or position number."""
+    user_id = resolve_ref("user", ref)
     api_post(f"/groups/{group_id}/members", {"user_id": user_id})
     print_success("Access granted.")
 
 
 @user.command("revoke")
-@click.argument("user_id")
+@click.argument("ref")
 @click.option("--group", "group_id", required=True, help="Group ID to revoke access from")
-def user_revoke(user_id: str, group_id: str):
-    """Revoke a user's access from a group."""
+def user_revoke(ref: str, group_id: str):
+    """Revoke a user's access from a group. REF is an email or position number."""
+    user_id = resolve_ref("user", ref)
     api_delete(f"/groups/{group_id}/members/{user_id}")
     print_success("Access revoked.")

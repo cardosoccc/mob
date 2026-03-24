@@ -4,10 +4,11 @@ import click
 
 from mob.cli.client import api_delete, api_get, api_post, api_put
 from mob.cli.output import print_detail, print_success, print_table
+from mob.cli.resolver import agent_filters, resolve_ref
 
 
 @click.command("agents")
-@click.option("--domain", "domain_id", help="Filter by domain ID")
+@agent_filters
 def agents(domain_id: str | None):
     """List agents."""
     params = {}
@@ -55,19 +56,22 @@ def agent_create(
 
 
 @agent.command("edit")
-@click.argument("agent_id")
+@click.argument("ref")
+@agent_filters
 @click.option("--name", help="New agent name")
 @click.option("--template", "agent_template", help="New Docker image")
 @click.option("--system-prompt", help="New system prompt")
 @click.option("--model-endpoint", help="New model endpoint URL")
 def agent_edit(
-    agent_id: str,
+    ref: str,
+    domain_id: str | None,
     name: str | None,
     agent_template: str | None,
     system_prompt: str | None,
     model_endpoint: str | None,
 ):
-    """Edit an agent."""
+    """Edit an agent. REF is a name or position number."""
+    agent_id = resolve_ref("agent", ref, domain_id=domain_id)
     payload = {}
     if name:
         payload["name"] = name
@@ -83,27 +87,33 @@ def agent_edit(
 
 
 @agent.command("delete")
-@click.argument("agent_id")
+@click.argument("ref")
+@agent_filters
 @click.confirmation_option(prompt="Are you sure you want to delete this agent?")
-def agent_delete(agent_id: str):
-    """Delete an agent."""
+def agent_delete(ref: str, domain_id: str | None):
+    """Delete an agent. REF is a name or position number."""
+    agent_id = resolve_ref("agent", ref, domain_id=domain_id)
     api_delete(f"/agents/{agent_id}")
     print_success("Agent deleted.")
 
 
 @agent.command("show")
-@click.argument("agent_id")
-def agent_show(agent_id: str):
-    """Show details of an agent."""
+@click.argument("ref")
+@agent_filters
+def agent_show(ref: str, domain_id: str | None):
+    """Show details of an agent. REF is a name or position number."""
+    agent_id = resolve_ref("agent", ref, domain_id=domain_id)
     data = api_get(f"/agents/{agent_id}")
     print_detail(data)
 
 
 @agent.command("run")
-@click.argument("agent_id")
+@click.argument("ref")
+@agent_filters
 @click.option("--task", "task_id", help="Task ID to associate with the run")
-def agent_run(agent_id: str, task_id: str | None):
-    """Run an instance of an agent."""
+def agent_run(ref: str, domain_id: str | None, task_id: str | None):
+    """Run an instance of an agent. REF is a name or position number."""
+    agent_id = resolve_ref("agent", ref, domain_id=domain_id)
     payload = {"agent_id": agent_id}
     if task_id:
         payload["task_id"] = task_id

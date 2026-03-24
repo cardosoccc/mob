@@ -4,10 +4,11 @@ import click
 
 from mob.cli.client import api_delete, api_get, api_post, api_put
 from mob.cli.output import print_detail, print_success, print_table
+from mob.cli.resolver import domain_filters, resolve_ref
 
 
 @click.command("domains")
-@click.option("--org", "organization_id", help="Filter by organization ID")
+@domain_filters
 def domains(organization_id: str | None):
     """List domains."""
     params = {}
@@ -39,10 +40,12 @@ def domain_create(identifier: str, name: str, organization_id: str):
 
 
 @domain.command("edit")
-@click.argument("domain_id")
+@click.argument("ref")
+@domain_filters
 @click.option("--name", help="New display name")
-def domain_edit(domain_id: str, name: str | None):
-    """Edit a domain."""
+def domain_edit(ref: str, organization_id: str | None, name: str | None):
+    """Edit a domain. REF is an identifier or position number."""
+    domain_id = resolve_ref("domain", ref, organization_id=organization_id)
     payload = {}
     if name:
         payload["name"] = name
@@ -52,17 +55,21 @@ def domain_edit(domain_id: str, name: str | None):
 
 
 @domain.command("delete")
-@click.argument("domain_id")
+@click.argument("ref")
+@domain_filters
 @click.confirmation_option(prompt="Are you sure you want to delete this domain?")
-def domain_delete(domain_id: str):
-    """Delete a domain."""
+def domain_delete(ref: str, organization_id: str | None):
+    """Delete a domain. REF is an identifier or position number."""
+    domain_id = resolve_ref("domain", ref, organization_id=organization_id)
     api_delete(f"/domains/{domain_id}")
     print_success("Domain deleted.")
 
 
 @domain.command("show")
-@click.argument("domain_id")
-def domain_show(domain_id: str):
-    """Show details of a domain."""
+@click.argument("ref")
+@domain_filters
+def domain_show(ref: str, organization_id: str | None):
+    """Show details of a domain. REF is an identifier or position number."""
+    domain_id = resolve_ref("domain", ref, organization_id=organization_id)
     data = api_get(f"/domains/{domain_id}")
     print_detail(data)

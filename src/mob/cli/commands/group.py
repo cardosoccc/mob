@@ -4,10 +4,11 @@ import click
 
 from mob.cli.client import api_delete, api_get, api_post, api_put
 from mob.cli.output import print_detail, print_success, print_table
+from mob.cli.resolver import group_filters, resolve_ref
 
 
 @click.command("groups")
-@click.option("--org", "organization_id", help="Filter by organization ID")
+@group_filters
 def groups(organization_id: str | None):
     """List groups."""
     params = {}
@@ -34,10 +35,12 @@ def group_create(name: str, organization_id: str):
 
 
 @group.command("edit")
-@click.argument("group_id")
+@click.argument("ref")
+@group_filters
 @click.option("--name", help="New group name")
-def group_edit(group_id: str, name: str | None):
-    """Edit a group."""
+def group_edit(ref: str, organization_id: str | None, name: str | None):
+    """Edit a group. REF is a name or position number."""
+    group_id = resolve_ref("group", ref, organization_id=organization_id)
     payload = {}
     if name:
         payload["name"] = name
@@ -47,17 +50,21 @@ def group_edit(group_id: str, name: str | None):
 
 
 @group.command("delete")
-@click.argument("group_id")
+@click.argument("ref")
+@group_filters
 @click.confirmation_option(prompt="Are you sure you want to delete this group?")
-def group_delete(group_id: str):
-    """Delete a group."""
+def group_delete(ref: str, organization_id: str | None):
+    """Delete a group. REF is a name or position number."""
+    group_id = resolve_ref("group", ref, organization_id=organization_id)
     api_delete(f"/groups/{group_id}")
     print_success("Group deleted.")
 
 
 @group.command("show")
-@click.argument("group_id")
-def group_show(group_id: str):
-    """Show details of a group."""
+@click.argument("ref")
+@group_filters
+def group_show(ref: str, organization_id: str | None):
+    """Show details of a group. REF is a name or position number."""
+    group_id = resolve_ref("group", ref, organization_id=organization_id)
     data = api_get(f"/groups/{group_id}")
     print_detail(data)
