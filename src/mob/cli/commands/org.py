@@ -4,6 +4,7 @@ import click
 
 from mob.cli.client import api_delete, api_get, api_post, api_put
 from mob.cli.output import print_detail, print_success, print_table
+from mob.cli.resolver import resolve_ref
 
 
 @click.command("orgs")
@@ -30,10 +31,11 @@ def org_create(identifier: str, name: str):
 
 
 @org.command("edit")
-@click.argument("org_id")
+@click.argument("ref")
 @click.option("--name", help="New display name")
-def org_edit(org_id: str, name: str | None):
-    """Edit an organization."""
+def org_edit(ref: str, name: str | None):
+    """Edit an organization. REF is a name, identifier, or position number."""
+    org_id = resolve_ref("organization", ref)
     payload = {}
     if name:
         payload["name"] = name
@@ -43,17 +45,19 @@ def org_edit(org_id: str, name: str | None):
 
 
 @org.command("delete")
-@click.argument("org_id")
+@click.argument("ref")
 @click.confirmation_option(prompt="Are you sure you want to delete this organization?")
-def org_delete(org_id: str):
-    """Delete an organization."""
+def org_delete(ref: str):
+    """Delete an organization. REF is a name, identifier, or position number."""
+    org_id = resolve_ref("organization", ref)
     api_delete(f"/organizations/{org_id}")
     print_success("Organization deleted.")
 
 
 @org.command("show")
-@click.argument("org_id")
-def org_show(org_id: str):
-    """Show details of an organization."""
+@click.argument("ref")
+def org_show(ref: str):
+    """Show details of an organization. REF is a name, identifier, or position number."""
+    org_id = resolve_ref("organization", ref)
     data = api_get(f"/organizations/{org_id}")
     print_detail(data)

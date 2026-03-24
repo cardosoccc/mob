@@ -30,11 +30,12 @@ def print_table(data: list[dict], columns: list[str] | None = None) -> None:
     id_columns = {col for col in columns if col == "id" or col.endswith("_id")}
 
     table = Table()
+    table.add_column("#", justify="right", style="dim")
     for col in columns:
         table.add_column(col.upper().replace("_", " "))
 
-    for row in data:
-        values = []
+    for idx, row in enumerate(data, start=1):
+        values = [str(idx)]
         for col in columns:
             val = str(row.get(col, ""))
             if col in id_columns:
