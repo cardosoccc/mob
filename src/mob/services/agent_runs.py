@@ -1,6 +1,7 @@
 """AgentRun service."""
 
 import logging
+import secrets
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,24 +38,36 @@ def _try_get_k8s_custom_api():
 
 
 async def list_agent_runs(
-    session: AsyncSession, agent_id: str | None = None
+    session: AsyncSession,
+    agent_id: str | None = None,
+    state: str | None = None,
 ) -> list[AgentRun]:
     query = select(AgentRun).order_by(AgentRun.created_at.desc())
     if agent_id:
         query = query.where(AgentRun.agent_id == agent_id)
+    if state:
+        query = query.where(AgentRun.state == AgentRunState(state))
     result = await session.execute(query)
     return list(result.scalars().all())
 
 
 async def create_agent_run(
-    session: AsyncSession, agent_id: str, task_id: str | None = None
+    session: AsyncSession,
+    agent_id: str,
+    task_id: str | None = None,
+    name: str | None = None,
 ) -> AgentRun:
     agent = await session.get(Agent, agent_id)
     if not agent:
         raise ServiceError("Agent not found", 404)
 
+    if not name:
+        suffix = secrets.token_hex(4)  # 8 hex chars
+        name = f"{agent.name}-{suffix}"
+
     run = AgentRun(
         agent_id=agent_id,
+        name=name,
         state=AgentRunState.PENDING,
         task_id=task_id,
     )

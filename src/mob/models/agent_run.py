@@ -21,6 +21,7 @@ class AgentRun(Base, TimestampMixin):
     __tablename__ = "agent_runs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     agent_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False
     )
@@ -37,4 +38,4 @@ class AgentRun(Base, TimestampMixin):
     task: Mapped["Task | None"] = relationship("Task", back_populates="agent_run")  # noqa: F821
 
     def __repr__(self) -> str:
-        return f"<AgentRun(id={self.id}, state={self.state})>"
+        return f"<AgentRun(id={self.id}, name={self.name}, state={self.state})>"
