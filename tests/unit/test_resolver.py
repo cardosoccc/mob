@@ -36,6 +36,12 @@ GROUPS = [
     {"id": "g-3", "name": "design", "organization_id": "aaa-111"},
 ]
 
+AGENT_RUNS = [
+    {"id": "ar-1", "name": "coder-a1b2c3d4", "agent_id": "ag-1", "state": "idle"},
+    {"id": "ar-2", "name": "coder-e5f6g7h8", "agent_id": "ag-1", "state": "pending"},
+    {"id": "ar-3", "name": "reviewer-11223344", "agent_id": "ag-3", "state": "idle"},
+]
+
 
 class TestResolveByUUID:
     """UUID passthrough."""
@@ -165,6 +171,33 @@ class TestScopedResolution:
         ]
         with pytest.raises(click.ClickException, match="No group with name 'nope'"):
             resolve_ref("group", "nope", organization_id="aaa-111")
+
+
+class TestAgentRunResolution:
+    """Agent run resolver tests."""
+
+    @patch("mob.cli.resolver.api_get", return_value=AGENT_RUNS)
+    def test_agent_run_by_name(self, mock_get):
+        assert resolve_ref("agent_run", "coder-a1b2c3d4") == "ar-1"
+
+    @patch("mob.cli.resolver.api_get", return_value=AGENT_RUNS)
+    def test_agent_run_by_position(self, mock_get):
+        assert resolve_ref("agent_run", "2") == "ar-2"
+
+    def test_agent_run_uuid_passthrough(self):
+        uuid = "12345678-1234-1234-1234-123456789abc"
+        assert resolve_ref("agent_run", uuid) == uuid
+
+    @patch("mob.cli.resolver.api_get", return_value=AGENT_RUNS[:2])
+    def test_agent_run_with_agent_filter(self, mock_get):
+        result = resolve_ref("agent_run", "1", agent_id="ag-1")
+        assert result == "ar-1"
+        mock_get.assert_called_with("/agent-runs", params={"agent_id": "ag-1"})
+
+    @patch("mob.cli.resolver.api_get", return_value=AGENT_RUNS)
+    def test_agent_run_name_not_found(self, mock_get):
+        with pytest.raises(click.ClickException, match="No agent_run with name 'nonexistent'"):
+            resolve_ref("agent_run", "nonexistent")
 
 
 class TestUnknownResourceType:

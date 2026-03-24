@@ -4,6 +4,7 @@ import logging
 import secrets
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mob.config import get_settings
@@ -72,7 +73,11 @@ async def create_agent_run(
         task_id=task_id,
     )
     session.add(run)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise ServiceError(f"Run name '{name}' already exists", 409)
     await session.refresh(run)
 
     # Try to create an AgentRun CR in Kubernetes
