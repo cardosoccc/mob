@@ -3,12 +3,18 @@ kind: ClusterRole
 metadata:
   name: mob-operator
 rules:
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch", "create", "patch"]
   - apiGroups: ["mob.io"]
     resources: ["agentruns"]
     verbs: ["get", "list", "watch", "patch"]
   - apiGroups: ["mob.io"]
     resources: ["agentruns/status"]
     verbs: ["get", "patch"]
+  - apiGroups: ["mob.io"]
+    resources: ["agentruns/finalizers"]
+    verbs: ["update"]
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch", "create", "patch", "delete"]
