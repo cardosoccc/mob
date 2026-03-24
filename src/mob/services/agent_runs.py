@@ -192,3 +192,12 @@ async def update_agent_run_state(
     await session.commit()
     await session.refresh(run)
     return run
+
+
+async def send_message(
+    session: AsyncSession, run_id: str, message: str
+) -> dict:
+    run = await session.get(AgentRun, run_id)
+    if not run:
+        raise ServiceError("Agent run not found", 404)
+    raise ServiceError("Message delivery is not yet implemented", 501)

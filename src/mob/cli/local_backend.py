@@ -196,14 +196,6 @@ async def _route(session: Any, method: str, path: str, data: dict, params: dict)
             )
             return _to_dict(model, AgentResponse)
 
-    m = _match(r"^/agents/([^/]+)/send$", path)
-    if m:
-        agent_id = m.group(1)
-        if method == "POST":
-            return await agent_svc.send_message(
-                session, agent_id, message=data["message"], run_id=data["run_id"]
-            )
-
     m = _match(r"^/agents/([^/]+)$", path)
     if m:
         agent_id = m.group(1)
@@ -229,14 +221,27 @@ async def _route(session: Any, method: str, path: str, data: dict, params: dict)
     if path == "/agent-runs":
         if method == "GET":
             models = await run_svc.list_agent_runs(
-                session, agent_id=params.get("agent_id")
+                session,
+                agent_id=params.get("agent_id"),
+                state=params.get("state"),
             )
             return _to_list(models, AgentRunResponse)
         if method == "POST":
             model = await run_svc.create_agent_run(
-                session, agent_id=data["agent_id"], task_id=data.get("task_id")
+                session,
+                agent_id=data["agent_id"],
+                task_id=data.get("task_id"),
+                name=data.get("name"),
             )
             return _to_dict(model, AgentRunResponse)
+
+    m = _match(r"^/agent-runs/([^/]+)/send$", path)
+    if m:
+        run_id = m.group(1)
+        if method == "POST":
+            return await run_svc.send_message(
+                session, run_id, message=data["message"]
+            )
 
     m = _match(r"^/agent-runs/([^/]+)/logs$", path)
     if m:

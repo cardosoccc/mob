@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mob.database import get_session
-from mob.schemas import AgentCreate, AgentResponse, AgentSendMessage, AgentUpdate
+from mob.schemas import AgentCreate, AgentResponse, AgentUpdate
 from mob.services import ServiceError
 from mob.services import agents as agent_service
 
@@ -64,18 +64,5 @@ async def update_agent(
 async def delete_agent(agent_id: str, session: AsyncSession = Depends(get_session)):
     try:
         await agent_service.delete_agent(session, agent_id)
-    except ServiceError as e:
-        raise HTTPException(e.status_code, e.message)
-
-
-@router.post("/{agent_id}/send")
-async def send_message(
-    agent_id: str, data: AgentSendMessage, session: AsyncSession = Depends(get_session)
-):
-    """Send a message to a running agent."""
-    try:
-        return await agent_service.send_message(
-            session, agent_id, message=data.message, run_id=data.run_id
-        )
     except ServiceError as e:
         raise HTTPException(e.status_code, e.message)

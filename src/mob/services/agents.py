@@ -102,9 +102,3 @@ async def delete_agent(session: AsyncSession, agent_id: str) -> None:
         raise ServiceError("Agent not found", 404)
     await session.delete(agent)
     await session.commit()
-
-
-async def send_message(
-    session: AsyncSession, agent_id: str, message: str, run_id: str
-) -> dict:
-    raise ServiceError("Message delivery is not yet implemented", 501)
