@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use k8s_openapi::api::core::v1::{
-    Container, ContainerPort, EnvVar, EnvVarSource, HTTPGetAction, Pod, PodSpec, Probe,
-    ResourceRequirements,
+    Container, ContainerPort, EnvFromSource, EnvVar, EnvVarSource, HTTPGetAction, Pod, PodSpec,
+    Probe, ResourceRequirements, SecretEnvSource,
 };
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
@@ -98,7 +98,15 @@ pub fn build_agent_pod(ar: &AgentRun) -> Result<Pod, Error> {
             containers: vec![Container {
                 name: "agent".into(),
                 image: Some(spec.agent_template.clone()),
+                image_pull_policy: Some("IfNotPresent".into()),
                 env: Some(env),
+                env_from: Some(vec![EnvFromSource {
+                    secret_ref: Some(SecretEnvSource {
+                        name: "mob-agent-secrets".into(),
+                        optional: Some(true),
+                    }),
+                    ..Default::default()
+                }]),
                 ports: Some(vec![ContainerPort {
                     container_port: 8081,
                     name: Some("agent-http".into()),

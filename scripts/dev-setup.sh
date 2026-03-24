@@ -19,6 +19,10 @@ KIND_CONFIG="kind-config.yaml"
 KIND_NODE="${KIND_CLUSTER}-control-plane"
 APP_IMAGE="mob-api"
 APP_TAG="latest"
+OPERATOR_IMAGE="mob-operator"
+OPERATOR_TAG="latest"
+AGENT_IMAGE="mob-agent-pydantic"
+AGENT_TAG="latest"
 NAMESPACE="mob"
 KUBE_CTX="kind-${KIND_CLUSTER}"
 COMPOSE_FILE="docker-compose.yaml"
@@ -115,12 +119,20 @@ cmd_setup() {
   # --- Patch the Endpoints manifest with the real Postgres IP ---
   sed "s/127\.0\.0\.1/${POSTGRES_IP}/g" deploy/overlays/dev/postgres.yaml > /tmp/mob-postgres-endpoints.yaml
 
-  # --- Build and load Docker image ---
+  # --- Build and load Docker images ---
   log "Building Docker image '${APP_IMAGE}:${APP_TAG}'..."
   docker build -t "${APP_IMAGE}:${APP_TAG}" .
 
-  log "Loading image into Kind cluster..."
+  log "Building Docker image '${OPERATOR_IMAGE}:${OPERATOR_TAG}'..."
+  docker build -t "${OPERATOR_IMAGE}:${OPERATOR_TAG}" ./operator/
+
+  log "Building Docker image '${AGENT_IMAGE}:${AGENT_TAG}'..."
+  docker build -t "${AGENT_IMAGE}:${AGENT_TAG}" -f Dockerfile.agent .
+
+  log "Loading images into Kind cluster..."
   kind load docker-image "${APP_IMAGE}:${APP_TAG}" --name "${KIND_CLUSTER}"
+  kind load docker-image "${OPERATOR_IMAGE}:${OPERATOR_TAG}" --name "${KIND_CLUSTER}"
+  kind load docker-image "${AGENT_IMAGE}:${AGENT_TAG}" --name "${KIND_CLUSTER}"
 
   # --- Deploy with kustomize ---
   log "Deploying API to Kind cluster..."

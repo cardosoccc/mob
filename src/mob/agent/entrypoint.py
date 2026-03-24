@@ -32,15 +32,18 @@ SYSTEM_PROMPT = os.environ.get("AGENT_SYSTEM_PROMPT", "You are a helpful AI assi
 MODEL_ENDPOINT = os.environ.get("MODEL_ENDPOINT", "openai:gpt-4o")
 
 
-def _build_agent() -> Agent:
-    """Build the pydantic-ai agent from environment configuration."""
-    return Agent(
-        MODEL_ENDPOINT,
-        instructions=SYSTEM_PROMPT,
-    )
+_ai_agent: Agent | None = None
 
 
-ai_agent = _build_agent()
+def _get_agent() -> Agent:
+    """Lazily build the pydantic-ai agent from environment configuration."""
+    global _ai_agent
+    if _ai_agent is None:
+        _ai_agent = Agent(
+            MODEL_ENDPOINT,
+            instructions=SYSTEM_PROMPT,
+        )
+    return _ai_agent
 
 
 class MessageRequest(BaseModel):
@@ -116,7 +119,7 @@ async def message(req: MessageRequest):
         _set_state("busy")
 
     try:
-        result = await ai_agent.run(req.message)
+        result = await _get_agent().run(req.message)
         response_text = str(result.output)
         _set_state("idle")
         return MessageResponse(response=response_text, state=_state)
