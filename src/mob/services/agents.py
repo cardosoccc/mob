@@ -107,8 +107,4 @@ async def delete_agent(session: AsyncSession, agent_id: str) -> None:
 async def send_message(
     session: AsyncSession, agent_id: str, message: str, run_id: str
 ) -> dict:
-    agent = await session.get(Agent, agent_id)
-    if not agent:
-        raise ServiceError("Agent not found", 404)
-    # In a full implementation, this would forward the message to the agent's pod
-    return {"status": "sent", "agent_id": agent_id, "run_id": run_id}
+    raise ServiceError("Message delivery is not yet implemented", 501)

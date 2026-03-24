@@ -1,6 +1,7 @@
 """AgentRun API routes."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mob.database import get_session
@@ -36,6 +37,13 @@ async def get_agent_run(run_id: str, session: AsyncSession = Depends(get_session
         return await run_service.get_agent_run(session, run_id)
     except ServiceError as e:
         raise HTTPException(e.status_code, e.message)
+
+
+@router.get("/{run_id}/logs")
+async def get_agent_run_logs(run_id: str):
+    """Fetch live logs from the AgentRun CR status in Kubernetes."""
+    status = await run_service.get_agent_run_live_status(run_id)
+    return JSONResponse(content={"logs": status.get("logs", []), "status": status})
 
 
 @router.post("/{run_id}/stop", response_model=AgentRunResponse)
