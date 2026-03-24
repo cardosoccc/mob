@@ -1,6 +1,5 @@
 """Database session management."""
 
-from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from mob.config import get_settings
@@ -36,35 +35,6 @@ async def init_db(database_url: str | None = None) -> None:
     engine = get_engine(database_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        await conn.run_sync(_add_missing_columns)
-
-
-def _add_missing_columns(conn) -> None:
-    """Add columns that create_all won't add to existing tables.
-
-    SQLite cannot add NOT NULL columns without a default to tables with
-    existing rows, so new non-nullable columns are added as nullable first,
-    backfilled, and then left as-is (SQLite cannot alter column constraints).
-    """
-    inspector = inspect(conn)
-    for table in Base.metadata.sorted_tables:
-        if not inspector.has_table(table.name):
-            continue
-        existing = {col["name"] for col in inspector.get_columns(table.name)}
-        for column in table.columns:
-            if column.name not in existing:
-                col_type = column.type.compile(conn.dialect)
-                # Always add as nullable to avoid errors on existing rows
-                conn.execute(text(
-                    f"ALTER TABLE {table.name} ADD COLUMN {column.name} {col_type}"
-                ))
-                # Backfill NULLs with a generated value based on the row id
-                if not column.nullable:
-                    conn.execute(text(
-                        f"UPDATE {table.name} SET {column.name} = "
-                        f"'{table.name}-' || substr(id, 1, 8) "
-                        f"WHERE {column.name} IS NULL"
-                    ))
 
 
 async def close_db() -> None:
