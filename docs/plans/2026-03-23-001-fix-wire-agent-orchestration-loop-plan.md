@@ -1,7 +1,7 @@
 ---
 title: "fix: Wire the agent orchestration loop with a Kubernetes-native CRD operator"
 type: fix
-status: active
+status: completed
 date: 2026-03-23
 ---
 
