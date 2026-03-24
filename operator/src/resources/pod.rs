@@ -1,8 +1,10 @@
 use std::collections::BTreeMap;
 
 use k8s_openapi::api::core::v1::{
-    Container, EnvVar, Pod, PodSpec, ResourceRequirements,
+    Container, ContainerPort, EnvVar, EnvVarSource, HTTPGetAction, Pod, PodSpec, Probe,
+    ResourceRequirements,
 };
+use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use kube::Resource;
@@ -52,6 +54,30 @@ pub fn build_agent_pod(ar: &AgentRun) -> Result<Pod, Error> {
         });
     }
 
+    // Downward API: inject pod name and namespace so the agent can self-annotate
+    env.push(EnvVar {
+        name: "AGENT_POD_NAME".into(),
+        value_from: Some(EnvVarSource {
+            field_ref: Some(k8s_openapi::api::core::v1::ObjectFieldSelector {
+                field_path: "metadata.name".into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
+    env.push(EnvVar {
+        name: "AGENT_NAMESPACE".into(),
+        value_from: Some(EnvVarSource {
+            field_ref: Some(k8s_openapi::api::core::v1::ObjectFieldSelector {
+                field_path: "metadata.namespace".into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
+
     let oref = ar
         .controller_owner_ref(&())
         .ok_or(Error::MissingObjectKey("controller_owner_ref"))?;
@@ -73,6 +99,21 @@ pub fn build_agent_pod(ar: &AgentRun) -> Result<Pod, Error> {
                 name: "agent".into(),
                 image: Some(spec.agent_template.clone()),
                 env: Some(env),
+                ports: Some(vec![ContainerPort {
+                    container_port: 8081,
+                    name: Some("agent-http".into()),
+                    ..Default::default()
+                }]),
+                readiness_probe: Some(Probe {
+                    http_get: Some(HTTPGetAction {
+                        path: Some("/health".into()),
+                        port: IntOrString::Int(8081),
+                        ..Default::default()
+                    }),
+                    initial_delay_seconds: Some(3),
+                    period_seconds: Some(5),
+                    ..Default::default()
+                }),
                 resources: Some(ResourceRequirements {
                     requests: Some(BTreeMap::from([
                         ("cpu".to_string(), Quantity("100m".to_string())),
@@ -86,6 +127,7 @@ pub fn build_agent_pod(ar: &AgentRun) -> Result<Pod, Error> {
                 }),
                 ..Default::default()
             }],
+            service_account_name: Some("mob-agent".into()),
             restart_policy: Some("Never".into()),
             ..Default::default()
         }),

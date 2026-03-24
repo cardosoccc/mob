@@ -96,5 +96,8 @@ def agent_run_send(ref: str, agent_ref: str | None, domain_id: str | None, messa
     """Send a message to a running agent. REF is a name or position number."""
     agent_id = _resolve_agent_filter(agent_ref, domain_id)
     run_id = resolve_ref("agent_run", ref, agent_id=agent_id)
-    api_post(f"/agent-runs/{run_id}/send", {"message": message})
-    print_success("Message sent.")
+    result = api_post(f"/agent-runs/{run_id}/send", {"message": message})
+    if result and result.get("response"):
+        click.echo(result["response"])
+    else:
+        print_success("Message sent.")

@@ -3,6 +3,7 @@
 import logging
 import secrets
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -203,10 +204,78 @@ async def update_agent_run_state(
     return run
 
 
+def _try_get_k8s_core_api():
+    """Try to get a Kubernetes CoreV1Api client. Returns None if unavailable."""
+    try:
+        from kubernetes import client as k8s_client, config as k8s_config
+        try:
+            k8s_config.load_incluster_config()
+        except k8s_config.ConfigException:
+            k8s_config.load_kube_config()
+        return k8s_client.CoreV1Api()
+    except Exception:
+        return None
+
+
+def _get_pod_ip(pod_name: str) -> str:
+    """Look up the cluster IP of a pod by name."""
+    core_api = _try_get_k8s_core_api()
+    if not core_api:
+        raise ServiceError("Kubernetes is not available", 503)
+    try:
+        pod = core_api.read_namespaced_pod(
+            name=pod_name,
+            namespace=get_settings().kubernetes_namespace,
+        )
+    except Exception:
+        raise ServiceError(f"Pod {pod_name} not found", 502)
+
+    pod_ip = pod.status.pod_ip if pod.status else None
+    if not pod_ip:
+        raise ServiceError(f"Pod {pod_name} has no IP assigned", 502)
+    return pod_ip
+
+
 async def send_message(
     session: AsyncSession, run_id: str, message: str
 ) -> dict:
     run = await session.get(AgentRun, run_id)
     if not run:
         raise ServiceError("Agent run not found", 404)
-    raise ServiceError("Message delivery is not yet implemented", 501)
+
+    # Check live CR status to verify agent is running
+    live_status = await get_agent_run_live_status(str(run.id))
+    cr_state = live_status.get("state", "")
+    if cr_state not in ("Idle", "Busy"):
+        raise ServiceError(
+            f"Agent is not running (state: {cr_state or 'unknown'})", 409
+        )
+
+    # Get pod name from CR status
+    pod_name = live_status.get("podName")
+    if not pod_name:
+        raise ServiceError("Agent pod name not available", 502)
+
+    # Get pod IP and forward the message
+    pod_ip = _get_pod_ip(pod_name)
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=120.0, write=5.0, pool=5.0)
+        ) as client:
+            resp = await client.post(
+                f"http://{pod_ip}:8081/message",
+                json={"message": message},
+            )
+    except httpx.ConnectError:
+        raise ServiceError("Agent is unreachable", 502)
+    except httpx.TimeoutException:
+        raise ServiceError("Agent request timed out", 504)
+
+    if resp.status_code == 409:
+        raise ServiceError("Agent is busy", 409)
+
+    if resp.status_code != 200:
+        raise ServiceError(f"Agent returned error: {resp.text}", 502)
+
+    return resp.json()

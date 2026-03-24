@@ -1,7 +1,7 @@
-.PHONY: setup build test run lint format deploy clean install \
+.PHONY: setup build build-agent test run lint format deploy clean install \
        dev-up dev-down dev-logs \
        dev-kind-up dev-kind-down dev-kind-status dev-kind-logs \
-       dev-kind-psql dev-kind-rebuild dev-kind-reset \
+       dev-kind-psql dev-kind-rebuild dev-kind-rebuild-agent dev-kind-reset \
        deploy-dev deploy-staging deploy-production \
        infra-init-aws infra-init-gcp \
        infra-plan-aws infra-plan-gcp \
@@ -12,6 +12,8 @@ PYTHON := python3
 UV := uv
 APP_IMAGE := mob-api
 APP_TAG := latest
+AGENT_IMAGE := mob-agent-pydantic
+AGENT_TAG := latest
 KIND_CLUSTER := mob-local
 KIND_CTX := kind-$(KIND_CLUSTER)
 ENV ?= dev
@@ -31,6 +33,10 @@ install:
 ## build: build the Docker image
 build:
 	docker build -t $(APP_IMAGE):$(APP_TAG) .
+
+## build-agent: build the default pydantic-ai agent Docker image
+build-agent:
+	docker build -t $(AGENT_IMAGE):$(AGENT_TAG) -f Dockerfile.agent .
 
 ## test: run the test suite
 test:
@@ -73,6 +79,10 @@ dev-kind-rebuild: build
 	kind load docker-image $(APP_IMAGE):$(APP_TAG) --name $(KIND_CLUSTER)
 	kubectl --context $(KIND_CTX) -n mob rollout restart deployment/mob-api
 	kubectl --context $(KIND_CTX) -n mob rollout status deployment/mob-api --timeout=120s
+
+## dev-kind-rebuild-agent: rebuild the agent image and load to Kind cluster
+dev-kind-rebuild-agent: build-agent
+	kind load docker-image $(AGENT_IMAGE):$(AGENT_TAG) --name $(KIND_CLUSTER)
 
 ## dev-kind-reset: destroy and recreate the full local environment
 dev-kind-reset:
