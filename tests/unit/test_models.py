@@ -198,13 +198,14 @@ async def test_create_agent_run(session):
     session.add(agent)
     await session.flush()
 
-    run = AgentRun(agent_id=agent.id, state=AgentRunState.PENDING)
+    run = AgentRun(name="run-agent-abc12345", agent_id=agent.id, state=AgentRunState.PENDING)
     session.add(run)
     await session.commit()
 
     result = await session.execute(select(AgentRun).where(AgentRun.agent_id == agent.id))
     fetched = result.scalar_one()
     assert fetched.state == AgentRunState.PENDING
+    assert fetched.name == "run-agent-abc12345"
 
 
 @pytest.mark.asyncio
@@ -222,8 +223,8 @@ async def test_agent_run_states(session):
     session.add(agent)
     await session.flush()
 
-    for state in AgentRunState:
-        run = AgentRun(agent_id=agent.id, state=state)
+    for i, state in enumerate(AgentRunState):
+        run = AgentRun(name=f"state-agent-{state.value}-{i}", agent_id=agent.id, state=state)
         session.add(run)
 
     await session.commit()

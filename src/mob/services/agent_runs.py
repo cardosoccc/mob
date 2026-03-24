@@ -1,8 +1,10 @@
 """AgentRun service."""
 
 import logging
+import secrets
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mob.config import get_settings
@@ -37,29 +39,49 @@ def _try_get_k8s_custom_api():
 
 
 async def list_agent_runs(
-    session: AsyncSession, agent_id: str | None = None
+    session: AsyncSession,
+    agent_id: str | None = None,
+    state: str | None = None,
 ) -> list[AgentRun]:
     query = select(AgentRun).order_by(AgentRun.created_at.desc())
     if agent_id:
         query = query.where(AgentRun.agent_id == agent_id)
+    if state:
+        try:
+            query = query.where(AgentRun.state == AgentRunState(state))
+        except ValueError:
+            raise ServiceError(f"Invalid state filter: {state}", 400)
     result = await session.execute(query)
     return list(result.scalars().all())
 
 
 async def create_agent_run(
-    session: AsyncSession, agent_id: str, task_id: str | None = None
+    session: AsyncSession,
+    agent_id: str,
+    task_id: str | None = None,
+    name: str | None = None,
 ) -> AgentRun:
     agent = await session.get(Agent, agent_id)
     if not agent:
         raise ServiceError("Agent not found", 404)
 
+    if not name:
+        suffix = secrets.token_hex(4)  # 8 hex chars
+        name = f"{agent.name}-{suffix}"
+
     run = AgentRun(
         agent_id=agent_id,
+        name=name,
         state=AgentRunState.PENDING,
         task_id=task_id,
     )
     session.add(run)
-    await session.commit()
+    try:
+        await session.flush()
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise ServiceError(f"Run name '{name}' already exists", 409)
     await session.refresh(run)
 
     # Try to create an AgentRun CR in Kubernetes
@@ -179,3 +201,12 @@ async def update_agent_run_state(
     await session.commit()
     await session.refresh(run)
     return run
+
+
+async def send_message(
+    session: AsyncSession, run_id: str, message: str
+) -> dict:
+    run = await session.get(AgentRun, run_id)
+    if not run:
+        raise ServiceError("Agent run not found", 404)
+    raise ServiceError("Message delivery is not yet implemented", 501)

@@ -102,23 +102,3 @@ async def test_create_agent_with_skills(client, domain):
         "skill_ids": [skill_id],
     })
     assert resp.status_code == 201
-
-
-@pytest.mark.asyncio
-async def test_send_message_to_agent(client, domain):
-    agent_resp = await client.post("/api/v1/agents", json={
-        "name": "msg-agent",
-        "agent_template": "test:latest",
-        "domain_id": domain["id"],
-    })
-    agent_id = agent_resp.json()["id"]
-
-    run_resp = await client.post("/api/v1/agent-runs", json={"agent_id": agent_id})
-    run_id = run_resp.json()["id"]
-
-    resp = await client.post(f"/api/v1/agents/{agent_id}/send", json={
-        "message": "Hello agent!",
-        "run_id": run_id,
-    })
-    # send_message is not yet implemented — returns 501
-    assert resp.status_code == 501

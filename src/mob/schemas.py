@@ -134,10 +134,12 @@ class AgentResponse(BaseModel):
 class AgentRunCreate(BaseModel):
     agent_id: str
     task_id: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*[a-z0-9]$")
 
 
 class AgentRunResponse(BaseModel):
     id: str
+    name: str
     agent_id: str
     state: str
     pod_name: str | None
@@ -196,8 +198,7 @@ class SkillResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ─── Agent Send Message ────────────────────────────────────────
+# ─── Agent Run Send Message ────────────────────────────────────
 
-class AgentSendMessage(BaseModel):
+class AgentRunSendMessage(BaseModel):
     message: str = Field(..., min_length=1)
-    run_id: str

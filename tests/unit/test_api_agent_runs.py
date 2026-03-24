@@ -31,6 +31,31 @@ async def test_create_agent_run(client, agent):
     data = resp.json()
     assert data["agent_id"] == agent["id"]
     assert data["state"] == "pending"
+    assert data["name"].startswith("run-test-agent-")
+    assert len(data["name"]) == len("run-test-agent-") + 8
+
+
+@pytest.mark.asyncio
+async def test_create_agent_run_with_name(client, agent):
+    resp = await client.post("/api/v1/agent-runs", json={
+        "agent_id": agent["id"],
+        "name": "my-custom-run",
+    })
+    assert resp.status_code == 201
+    assert resp.json()["name"] == "my-custom-run"
+
+
+@pytest.mark.asyncio
+async def test_create_agent_run_duplicate_name(client, agent):
+    await client.post("/api/v1/agent-runs", json={
+        "agent_id": agent["id"],
+        "name": "unique-run",
+    })
+    resp = await client.post("/api/v1/agent-runs", json={
+        "agent_id": agent["id"],
+        "name": "unique-run",
+    })
+    assert resp.status_code == 409
 
 
 @pytest.mark.asyncio
@@ -39,6 +64,34 @@ async def test_list_agent_runs(client, agent):
     resp = await client.get("/api/v1/agent-runs", params={"agent_id": agent["id"]})
     assert resp.status_code == 200
     assert len(resp.json()) >= 1
+
+
+@pytest.mark.asyncio
+async def test_list_agent_runs_filter_by_state(client, agent):
+    await client.post("/api/v1/agent-runs", json={"agent_id": agent["id"]})
+    # All new runs are "pending"
+    resp = await client.get("/api/v1/agent-runs", params={"state": "pending"})
+    assert resp.status_code == 200
+    assert all(r["state"] == "pending" for r in resp.json())
+
+    resp = await client.get("/api/v1/agent-runs", params={"state": "idle"})
+    assert resp.status_code == 200
+    assert len(resp.json()) == 0
+
+
+@pytest.mark.asyncio
+async def test_list_agent_runs_invalid_state(client, agent):
+    resp = await client.get("/api/v1/agent-runs", params={"state": "bogus"})
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_send_to_agent_run(client, agent):
+    create_resp = await client.post("/api/v1/agent-runs", json={"agent_id": agent["id"]})
+    run_id = create_resp.json()["id"]
+    resp = await client.post(f"/api/v1/agent-runs/{run_id}/send", json={"message": "hello"})
+    # Should return 501 (not implemented)
+    assert resp.status_code == 501
 
 
 @pytest.mark.asyncio

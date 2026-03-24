@@ -20,6 +20,7 @@ _RESOURCE_CONFIG: dict[str, tuple[str, str, str | None]] = {
     "skill": ("/skills", "name", None),
     "group": ("/groups", "name", "organization_id"),
     "agent": ("/agents", "name", "domain_id"),
+    "agent_run": ("/agent-runs", "name", "agent_id"),
 }
 
 
