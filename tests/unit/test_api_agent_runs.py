@@ -90,8 +90,8 @@ async def test_send_to_agent_run(client, agent):
     create_resp = await client.post("/api/v1/agent-runs", json={"agent_id": agent["id"]})
     run_id = create_resp.json()["id"]
     resp = await client.post(f"/api/v1/agent-runs/{run_id}/send", json={"message": "hello"})
-    # Should return 501 (not implemented)
-    assert resp.status_code == 501
+    # Without K8s, agent is not running — returns 409
+    assert resp.status_code == 409
 
 
 @pytest.mark.asyncio
