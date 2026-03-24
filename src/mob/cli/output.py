@@ -9,6 +9,15 @@ from rich.table import Table
 console = Console()
 
 
+def _short_id(value: str) -> str:
+    """Shorten UUIDs to 8 chars for table display."""
+    s = str(value)
+    # Detect UUID pattern (8-4-4-4-12 hex)
+    if len(s) == 36 and s.count("-") == 4:
+        return s[:8]
+    return s
+
+
 def print_table(data: list[dict], columns: list[str] | None = None) -> None:
     if not data:
         console.print("[dim]No results found.[/dim]")
@@ -17,12 +26,21 @@ def print_table(data: list[dict], columns: list[str] | None = None) -> None:
     if columns is None:
         columns = list(data[0].keys())
 
+    # Columns ending in "id" or named "id" get short UUIDs
+    id_columns = {col for col in columns if col == "id" or col.endswith("_id")}
+
     table = Table()
     for col in columns:
         table.add_column(col.upper().replace("_", " "))
 
     for row in data:
-        table.add_row(*[str(row.get(col, "")) for col in columns])
+        values = []
+        for col in columns:
+            val = str(row.get(col, ""))
+            if col in id_columns:
+                val = _short_id(val)
+            values.append(val)
+        table.add_row(*values)
 
     console.print(table)
 

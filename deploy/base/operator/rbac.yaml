@@ -1,0 +1,30 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mob-operator
+rules:
+  - apiGroups: ["mob.io"]
+    resources: ["agentruns"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["mob.io"]
+    resources: ["agentruns/status"]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "create", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mob-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mob-operator
+subjects:
+  - kind: ServiceAccount
+    name: mob-operator
+    namespace: mob

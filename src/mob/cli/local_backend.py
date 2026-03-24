@@ -238,6 +238,13 @@ async def _route(session: Any, method: str, path: str, data: dict, params: dict)
             )
             return _to_dict(model, AgentRunResponse)
 
+    m = _match(r"^/agent-runs/([^/]+)/logs$", path)
+    if m:
+        run_id = m.group(1)
+        if method == "GET":
+            status = await run_svc.get_agent_run_live_status(run_id)
+            return {"logs": status.get("logs", []), "status": status}
+
     m = _match(r"^/agent-runs/([^/]+)/stop$", path)
     if m:
         run_id = m.group(1)

@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mob-operator
+  namespace: mob
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mob-operator
+  template:
+    metadata:
+      labels:
+        app: mob-operator
+    spec:
+      serviceAccountName: mob-operator
+      containers:
+        - name: operator
+          image: mob-operator:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: RUST_LOG
+              value: "mob_operator=info,kube=warn"
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
