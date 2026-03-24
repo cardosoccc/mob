@@ -80,6 +80,12 @@ async def test_list_agent_runs_filter_by_state(client, agent):
 
 
 @pytest.mark.asyncio
+async def test_list_agent_runs_invalid_state(client, agent):
+    resp = await client.get("/api/v1/agent-runs", params={"state": "bogus"})
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_send_to_agent_run(client, agent):
     create_resp = await client.post("/api/v1/agent-runs", json={"agent_id": agent["id"]})
     run_id = create_resp.json()["id"]

@@ -134,7 +134,7 @@ class AgentResponse(BaseModel):
 class AgentRunCreate(BaseModel):
     agent_id: str
     task_id: str | None = None
-    name: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*[a-z0-9]$")
 
 
 class AgentRunResponse(BaseModel):

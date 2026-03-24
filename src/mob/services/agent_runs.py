@@ -47,7 +47,10 @@ async def list_agent_runs(
     if agent_id:
         query = query.where(AgentRun.agent_id == agent_id)
     if state:
-        query = query.where(AgentRun.state == AgentRunState(state))
+        try:
+            query = query.where(AgentRun.state == AgentRunState(state))
+        except ValueError:
+            raise ServiceError(f"Invalid state filter: {state}", 400)
     result = await session.execute(query)
     return list(result.scalars().all())
 
@@ -74,6 +77,7 @@ async def create_agent_run(
     )
     session.add(run)
     try:
+        await session.flush()
         await session.commit()
     except IntegrityError:
         await session.rollback()

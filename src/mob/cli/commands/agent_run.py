@@ -21,8 +21,8 @@ def _resolve_agent_filter(agent_ref: str | None, domain_id: str | None) -> str |
 def agent_runs(agent_ref: str | None, domain_id: str | None, state: str | None):
     """List agent runs."""
     params = {}
-    if agent_ref:
-        agent_id = resolve_ref("agent", agent_ref, domain_id=domain_id)
+    agent_id = _resolve_agent_filter(agent_ref, domain_id)
+    if agent_id:
         params["agent_id"] = agent_id
     if state:
         params["state"] = state
@@ -80,17 +80,11 @@ def agent_run_logs(ref: str, agent_ref: str | None, domain_id: str | None, tail:
             click.echo(f"Error: {status['errorMessage']}")
     else:
         click.echo("No live status available (K8s may not be configured).")
-
-
-@agent_run.command("attach")
-@click.argument("ref")
-@click.option("--agent", "agent_ref", help="Scope by agent (name or position)")
-@agent_filters
-def agent_run_attach(ref: str, agent_ref: str | None, domain_id: str | None):
-    """Attach to an agent run's pod (not yet implemented). REF is a name or position number."""
-    click.echo("Error: Interactive attach is not yet implemented.", err=True)
-    click.echo("It requires websocket streaming support.", err=True)
-    raise SystemExit(1)
+    logs = data.get("logs", [])
+    if logs:
+        click.echo("---")
+        for line in logs:
+            click.echo(line)
 
 
 @agent_run.command("send")
