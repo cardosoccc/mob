@@ -25,6 +25,27 @@ check_prerequisites() {
     echo "ERROR: Docker daemon is not running." >&2
     exit 1
   fi
+
+  # Kind requires sufficient inotify limits or kube-proxy will CrashLoopBackOff
+  ensure_inotify_limits
+}
+
+ensure_inotify_limits() {
+  local watches instances
+  watches=$(cat /proc/sys/fs/inotify/max_user_watches 2>/dev/null || echo 0)
+  instances=$(cat /proc/sys/fs/inotify/max_user_instances 2>/dev/null || echo 0)
+
+  if [ "${watches}" -lt 524288 ] || [ "${instances}" -lt 512 ]; then
+    log "Raising inotify limits (requires sudo)..."
+    if sudo -n sysctl -w fs.inotify.max_user_watches=524288 fs.inotify.max_user_instances=512 >/dev/null 2>&1; then
+      log "inotify limits set (watches=524288, instances=512)."
+    else
+      echo "ERROR: inotify limits are too low for Kind (watches=${watches}, instances=${instances})." >&2
+      echo "Run this manually, then retry:" >&2
+      echo "  sudo sysctl -w fs.inotify.max_user_watches=524288 fs.inotify.max_user_instances=512" >&2
+      exit 1
+    fi
+  fi
 }
 
 cluster_exists() {
