@@ -1,0 +1,30 @@
+# Social media agent with WhatsApp, Telegram, LinkedIn, Instagram.
+# Apply with: mob agent apply examples/social-agent.yaml
+
+name: social-bot
+agent_template: mob-agent-social
+domain: dev
+system_prompt: |
+  You are a social media assistant.
+  You can send messages via WhatsApp and Telegram,
+  and post content on LinkedIn and Instagram.
+model_endpoint: "anthropic:claude-sonnet-4-6-20260320"
+
+skills:
+  - social-media-guidelines
+
+env:
+  ANTHROPIC_API_KEY: ""
+  WHATSAPP_ACCESS_TOKEN: ""
+  WHATSAPP_PHONE_NUMBER_ID: ""
+  TELEGRAM_BOT_TOKEN: ""
+  LINKEDIN_ACCESS_TOKEN: ""
+  LINKEDIN_PERSON_URN: ""
+  INSTAGRAM_ACCESS_TOKEN: ""
+  INSTAGRAM_BUSINESS_ACCOUNT_ID: ""
+
+custom:
+  whatsapp_enabled: "true"
+  telegram_enabled: "true"
+  linkedin_enabled: "true"
+  instagram_enabled: "false"

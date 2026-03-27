@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use k8s_openapi::api::core::v1::{
-    Container, ContainerPort, EnvFromSource, EnvVar, EnvVarSource, HTTPGetAction, Pod, PodSpec,
-    Probe, ResourceRequirements, SecretEnvSource,
+    ConfigMapVolumeSource, Container, ContainerPort, EnvFromSource, EnvVar, EnvVarSource,
+    HTTPGetAction, Pod, PodSpec, Probe, ResourceRequirements, SecretEnvSource, Volume,
+    VolumeMount,
 };
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
@@ -93,6 +94,30 @@ pub fn build_agent_pod(ar: &Session) -> Result<Pod, Error> {
         .controller_owner_ref(&())
         .ok_or(Error::MissingObjectKey("controller_owner_ref"))?;
 
+    // Mount skills ConfigMap if specified
+    let mut volumes = Vec::new();
+    let mut volume_mounts = Vec::new();
+    if let Some(ref cm_name) = spec.skills_configmap {
+        volumes.push(Volume {
+            name: "skills".into(),
+            config_map: Some(ConfigMapVolumeSource {
+                name: cm_name.clone(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+        volume_mounts.push(VolumeMount {
+            name: "skills".into(),
+            mount_path: "/skills".into(),
+            read_only: Some(true),
+            ..Default::default()
+        });
+    }
+
+    // Resource limits: use overrides from template registry or defaults
+    let cpu_limit = spec.resource_cpu_limit.as_deref().unwrap_or("1000m");
+    let mem_limit = spec.resource_memory_limit.as_deref().unwrap_or("1Gi");
+
     Ok(Pod {
         metadata: ObjectMeta {
             name: Some(pod_name),
@@ -139,13 +164,15 @@ pub fn build_agent_pod(ar: &Session) -> Result<Pod, Error> {
                         ("memory".to_string(), Quantity("256Mi".to_string())),
                     ])),
                     limits: Some(BTreeMap::from([
-                        ("cpu".to_string(), Quantity("1000m".to_string())),
-                        ("memory".to_string(), Quantity("1Gi".to_string())),
+                        ("cpu".to_string(), Quantity(cpu_limit.to_string())),
+                        ("memory".to_string(), Quantity(mem_limit.to_string())),
                     ])),
                     ..Default::default()
                 }),
+                volume_mounts: if volume_mounts.is_empty() { None } else { Some(volume_mounts) },
                 ..Default::default()
             }],
+            volumes: if volumes.is_empty() { None } else { Some(volumes) },
             service_account_name: Some("mob-agent".into()),
             restart_policy: Some("Never".into()),
             ..Default::default()
@@ -320,6 +347,9 @@ mod tests {
                 model_endpoint: None,
                 task_id: None,
                 env_vars: None,
+                skills_configmap: None,
+                resource_cpu_limit: None,
+                resource_memory_limit: None,
             },
         );
         // controller_owner_ref requires uid to be set
@@ -364,6 +394,9 @@ mod tests {
                 system_prompt: None,
                 model_endpoint: None,
                 task_id: None,
+                skills_configmap: None,
+                resource_cpu_limit: None,
+                resource_memory_limit: None,
                 env_vars: Some(BTreeMap::from([
                     ("CUSTOM_VAR".to_string(), "hello".to_string()),
                     ("AGENT_CUSTOM_TEMPERATURE".to_string(), "0.7".to_string()),

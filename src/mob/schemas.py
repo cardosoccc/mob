@@ -99,6 +99,50 @@ class GroupMemberAdd(BaseModel):
     user_id: str
 
 
+# ─── Template ────────────────────────────────────────────────
+
+class TemplateCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    image: str = Field(..., min_length=1, max_length=500)
+    description: str | None = None
+    runtime: str = Field(..., min_length=1, max_length=50)
+    capabilities: list[str] | None = None
+    resource_cpu_limit: str | None = Field(None, max_length=20)
+    resource_memory_limit: str | None = Field(None, max_length=20)
+
+
+class TemplateUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    image: str | None = Field(None, min_length=1, max_length=500)
+    description: str | None = None
+    runtime: str | None = Field(None, min_length=1, max_length=50)
+    capabilities: list[str] | None = None
+    resource_cpu_limit: str | None = Field(None, max_length=20)
+    resource_memory_limit: str | None = Field(None, max_length=20)
+
+
+class TemplateResponse(BaseModel):
+    id: str
+    name: str
+    image: str
+    description: str | None
+    runtime: str
+    capabilities: list[str] | None = None
+    resource_cpu_limit: str | None
+    resource_memory_limit: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("capabilities", mode="before")
+    @classmethod
+    def _parse_capabilities(cls, v):
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
+
+
 # ─── Agent ──────────────────────────────────────────────────────
 
 class AgentCreate(BaseModel):
@@ -189,29 +233,45 @@ class TaskResponse(BaseModel):
 # ─── Skill ──────────────────────────────────────────────────────
 
 class SkillCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
-    description: str | None = None
-    skills_md: str | None = None
-    references_path: str | None = None
+    name: str = Field(..., min_length=1, max_length=64, pattern=r"^[a-z0-9][a-z0-9\-]*[a-z0-9]$")
+    description: str = Field(..., min_length=1, max_length=1024)
+    skill_md: str | None = None
+    license: str | None = Field(None, max_length=255)
+    compatibility: str | None = Field(None, max_length=500)
+    metadata_json: dict[str, str] | None = None
+    allowed_tools: str | None = Field(None, max_length=500)
 
 
 class SkillUpdate(BaseModel):
-    name: str | None = Field(None, min_length=1, max_length=255)
-    description: str | None = None
-    skills_md: str | None = None
-    references_path: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=64, pattern=r"^[a-z0-9][a-z0-9\-]*[a-z0-9]$")
+    description: str | None = Field(None, min_length=1, max_length=1024)
+    skill_md: str | None = None
+    license: str | None = Field(None, max_length=255)
+    compatibility: str | None = Field(None, max_length=500)
+    metadata_json: dict[str, str] | None = None
+    allowed_tools: str | None = Field(None, max_length=500)
 
 
 class SkillResponse(BaseModel):
     id: str
     name: str
     description: str | None
-    skills_md: str | None
-    references_path: str | None
+    skill_md: str | None
+    license: str | None
+    compatibility: str | None
+    metadata_json: dict[str, str] | None = None
+    allowed_tools: str | None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("metadata_json", mode="before")
+    @classmethod
+    def _parse_metadata(cls, v):
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
 
 
 # ─── Session Send Message ──────────────────────────────────────

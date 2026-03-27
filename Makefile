@@ -7,6 +7,9 @@
        infra-init-aws infra-init-gcp \
        infra-plan-aws infra-plan-gcp \
        infra-apply-aws infra-apply-gcp \
+       build-agent-social build-agent-pi build-agent-openclaw \
+       local-rebuild-agent-social local-rebuild-agent-pi local-rebuild-agent-openclaw \
+       build-webhook-gateway local-rebuild-webhook-gateway \
        run
 
 PYTHON := python3
@@ -15,6 +18,10 @@ APP_IMAGE := mob-api
 APP_TAG := latest
 AGENT_IMAGE := mob-agent-pydantic
 AGENT_TAG := latest
+SOCIAL_IMAGE := mob-agent-social
+PI_IMAGE := mob-agent-pi
+OPENCLAW_IMAGE := mob-agent-openclaw
+WEBHOOK_IMAGE := mob-webhook-gateway
 KIND_CLUSTER := mob-local
 KIND_CTX := kind-$(KIND_CLUSTER)
 ENV ?= dev
@@ -70,6 +77,38 @@ local-rebuild-operator:
 ## local-rebuild-agent: rebuild agent image and load to Kind
 local-rebuild-agent: build-agent
 	kind load docker-image $(AGENT_IMAGE):$(AGENT_TAG) --name $(KIND_CLUSTER)
+
+## build-agent-social: build the social agent Docker image
+build-agent-social:
+	docker build -t $(SOCIAL_IMAGE):$(AGENT_TAG) -f Dockerfile.agent-social .
+
+## build-agent-pi: build the Pi coding agent Docker image
+build-agent-pi:
+	docker build -t $(PI_IMAGE):$(AGENT_TAG) -f Dockerfile.agent-pi .
+
+## build-agent-openclaw: build the OpenClaw agent Docker image
+build-agent-openclaw:
+	docker build -t $(OPENCLAW_IMAGE):$(AGENT_TAG) -f Dockerfile.agent-openclaw .
+
+## local-rebuild-agent-social: rebuild social agent image and load to Kind
+local-rebuild-agent-social: build-agent-social
+	kind load docker-image $(SOCIAL_IMAGE):$(AGENT_TAG) --name $(KIND_CLUSTER)
+
+## local-rebuild-agent-pi: rebuild Pi agent image and load to Kind
+local-rebuild-agent-pi: build-agent-pi
+	kind load docker-image $(PI_IMAGE):$(AGENT_TAG) --name $(KIND_CLUSTER)
+
+## local-rebuild-agent-openclaw: rebuild OpenClaw agent image and load to Kind
+local-rebuild-agent-openclaw: build-agent-openclaw
+	kind load docker-image $(OPENCLAW_IMAGE):$(AGENT_TAG) --name $(KIND_CLUSTER)
+
+## build-webhook-gateway: build the webhook gateway Docker image
+build-webhook-gateway:
+	docker build -t $(WEBHOOK_IMAGE):$(AGENT_TAG) -f Dockerfile.webhook-gateway .
+
+## local-rebuild-webhook-gateway: rebuild webhook gateway and load to Kind
+local-rebuild-webhook-gateway: build-webhook-gateway
+	kind load docker-image $(WEBHOOK_IMAGE):$(AGENT_TAG) --name $(KIND_CLUSTER)
 
 # ---------- Dev mode targets ----------
 

@@ -9,6 +9,7 @@ from mob.cli.commands.group import group, groups
 from mob.cli.commands.agent import agent, agents
 from mob.cli.commands.session import session, sessions
 from mob.cli.commands.skill import skill, skills
+from mob.cli.commands.template import template, templates
 from mob.cli.commands.config_cmd import config, configs
 from mob.cli.commands.env_cmd import env, envs
 from mob.cli.commands.init_cmd import init
@@ -37,6 +38,8 @@ cli.add_command(sessions)
 cli.add_command(session)
 cli.add_command(skills)
 cli.add_command(skill)
+cli.add_command(templates)
+cli.add_command(template)
 cli.add_command(configs)
 cli.add_command(config)
 cli.add_command(envs)
