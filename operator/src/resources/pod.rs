@@ -78,6 +78,17 @@ pub fn build_agent_pod(ar: &Session) -> Result<Pod, Error> {
         ..Default::default()
     });
 
+    // Inject custom env vars from CR spec (agent defaults + runtime overrides)
+    if let Some(extra_env) = &spec.env_vars {
+        for (key, value) in extra_env {
+            env.push(EnvVar {
+                name: key.clone(),
+                value: Some(value.clone()),
+                ..Default::default()
+            });
+        }
+    }
+
     let oref = ar
         .controller_owner_ref(&())
         .ok_or(Error::MissingObjectKey("controller_owner_ref"))?;
@@ -308,6 +319,7 @@ mod tests {
                 system_prompt: Some("You are a test".into()),
                 model_endpoint: None,
                 task_id: None,
+                env_vars: None,
             },
         );
         // controller_owner_ref requires uid to be set
@@ -337,5 +349,41 @@ mod tests {
         assert!(env_names.contains(&"AGENT_NAME"));
         assert!(env_names.contains(&"AGENT_SYSTEM_PROMPT"));
         assert!(!env_names.contains(&"MODEL_ENDPOINT"));
+    }
+
+    #[test]
+    fn test_build_agent_pod_with_custom_env_vars() {
+        use crate::crd::SessionSpec;
+
+        let mut ar = Session::new(
+            "test-env",
+            SessionSpec {
+                agent_id: "agent-456".into(),
+                agent_name: "env-agent".into(),
+                agent_template: "python:3.11".into(),
+                system_prompt: None,
+                model_endpoint: None,
+                task_id: None,
+                env_vars: Some(BTreeMap::from([
+                    ("CUSTOM_VAR".to_string(), "hello".to_string()),
+                    ("AGENT_CUSTOM_TEMPERATURE".to_string(), "0.7".to_string()),
+                ])),
+            },
+        );
+        ar.metadata.uid = Some("test-uid-5678".into());
+
+        let pod = build_agent_pod(&ar).unwrap();
+        let container = &pod.spec.as_ref().unwrap().containers[0];
+        let env_map: std::collections::HashMap<&str, &str> = container
+            .env
+            .as_ref()
+            .unwrap()
+            .iter()
+            .filter_map(|e| e.value.as_deref().map(|v| (e.name.as_str(), v)))
+            .collect();
+
+        assert_eq!(env_map.get("CUSTOM_VAR"), Some(&"hello"));
+        assert_eq!(env_map.get("AGENT_CUSTOM_TEMPERATURE"), Some(&"0.7"));
+        assert_eq!(env_map.get("SESSION_ID"), Some(&"test-env"));
     }
 }

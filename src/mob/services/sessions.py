@@ -1,6 +1,7 @@
 """Session service."""
 
 import asyncio
+import json
 import logging
 import secrets
 import socket
@@ -160,11 +161,36 @@ async def list_sessions(
     return sessions
 
 
+def _build_env_vars(agent: "Agent", env_overrides: dict[str, str] | None = None) -> dict[str, str] | None:
+    """Merge agent env_defaults + custom_config (prefixed) + runtime overrides."""
+    merged: dict[str, str] = {}
+
+    # Layer 1: agent env_defaults
+    if agent.env_defaults:
+        defaults = json.loads(agent.env_defaults) if isinstance(agent.env_defaults, str) else agent.env_defaults
+        for k, v in defaults.items():
+            if v:  # skip empty-value (required-at-runtime) entries unless overridden
+                merged[k] = v
+
+    # Layer 2: agent custom_config with AGENT_CUSTOM_ prefix
+    if agent.custom_config:
+        custom = json.loads(agent.custom_config) if isinstance(agent.custom_config, str) else agent.custom_config
+        for k, v in custom.items():
+            merged[f"AGENT_CUSTOM_{k.upper()}"] = str(v)
+
+    # Layer 3: runtime overrides (highest priority)
+    if env_overrides:
+        merged.update(env_overrides)
+
+    return merged if merged else None
+
+
 async def create_session(
     session: AsyncSession,
     agent_id: str,
     task_id: str | None = None,
     name: str | None = None,
+    env_overrides: dict[str, str] | None = None,
 ) -> Session:
     agent = await session.get(Agent, agent_id)
     if not agent:
@@ -207,6 +233,7 @@ async def create_session(
                     "systemPrompt": agent.system_prompt,
                     "modelEndpoint": agent.model_endpoint,
                     "taskId": str(task_id) if task_id else None,
+                    "envVars": _build_env_vars(agent, env_overrides),
                 },
             }
             custom_api.create_namespaced_custom_object(

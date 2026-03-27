@@ -211,11 +211,37 @@ mob agent edit 1 --model-endpoint "openai:gpt-4o"
 mob agent delete 1
 ```
 
+#### YAML Agent Definitions
+
+Agents can be defined in YAML files for version control and reproducibility:
+
+```yaml
+# agent.yaml
+name: researcher
+agent_template: mob-agent-pydantic:latest
+domain: dev
+system_prompt: "You are a research assistant."
+model_endpoint: "anthropic:claude-haiku-4-5-20251001"
+skills:
+  - code-review
+env:
+  ANTHROPIC_API_KEY: ""    # required at runtime
+  LLM_TIMEOUT: "120"      # default value
+custom:
+  temperature: "0.7"
+```
+
+```bash
+mob agent apply agent.yaml                   # Create or update
+mob agent create --file agent.yaml           # Create only
+```
+
 ### Sessions
 
 ```bash
 mob agent run researcher                     # Start a session
 mob agent run 1 --name "my-session"          # With custom name
+mob agent run 1 --env ANTHROPIC_API_KEY=sk-ant-...  # With env override
 mob sessions                                 # List all sessions
 mob sessions --agent researcher              # Filter by agent
 mob sessions --state idle                    # Filter by state

@@ -39,6 +39,10 @@ spec:
                   type: string
                 taskId:
                   type: string
+                envVars:
+                  type: object
+                  additionalProperties:
+                    type: string
             status:
               type: object
               properties:

@@ -30,7 +30,11 @@ async def create_session(
 ):
     try:
         return await session_service.create_session(
-            session, agent_id=data.agent_id, task_id=data.task_id, name=data.name
+            session,
+            agent_id=data.agent_id,
+            task_id=data.task_id,
+            name=data.name,
+            env_overrides=data.env_overrides,
         )
     except ServiceError as e:
         raise HTTPException(e.status_code, e.message)

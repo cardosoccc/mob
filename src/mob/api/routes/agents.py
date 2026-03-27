@@ -29,6 +29,8 @@ async def create_agent(data: AgentCreate, session: AsyncSession = Depends(get_se
             system_prompt=data.system_prompt,
             model_endpoint=data.model_endpoint,
             skill_ids=data.skill_ids,
+            env_defaults=data.env_defaults,
+            custom_config=data.custom_config,
         )
     except ServiceError as e:
         raise HTTPException(e.status_code, e.message)
@@ -55,6 +57,8 @@ async def update_agent(
             agent_template=data.agent_template,
             model_endpoint=data.model_endpoint,
             skill_ids=data.skill_ids,
+            env_defaults=data.env_defaults,
+            custom_config=data.custom_config,
         )
     except ServiceError as e:
         raise HTTPException(e.status_code, e.message)
