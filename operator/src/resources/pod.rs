@@ -9,14 +9,14 @@ use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use kube::Resource;
 
-use crate::crd::AgentRun;
+use crate::crd::Session;
 use crate::error::Error;
 
-/// Build a Pod manifest for the given AgentRun CR.
+/// Build a Pod manifest for the given Session CR.
 ///
 /// The pod has an owner reference back to the CR so Kubernetes garbage-collects
 /// the pod when the CR is deleted.
-pub fn build_agent_pod(ar: &AgentRun) -> Result<Pod, Error> {
+pub fn build_agent_pod(ar: &Session) -> Result<Pod, Error> {
     let spec = &ar.spec;
     let run_name = ar
         .meta()
@@ -28,7 +28,7 @@ pub fn build_agent_pod(ar: &AgentRun) -> Result<Pod, Error> {
 
     let mut env = vec![
         EnvVar {
-            name: "AGENT_RUN_ID".into(),
+            name: "SESSION_ID".into(),
             value: Some(run_name.to_string()),
             ..Default::default()
         },
@@ -89,7 +89,7 @@ pub fn build_agent_pod(ar: &AgentRun) -> Result<Pod, Error> {
             owner_references: Some(vec![oref]),
             labels: Some(BTreeMap::from([
                 ("app".to_string(), "mob-agent".to_string()),
-                ("mob.io/agent-run".to_string(), run_name.to_string()),
+                ("mob.io/session".to_string(), run_name.to_string()),
                 ("mob.io/agent-name".to_string(), spec.agent_name.clone()),
             ])),
             ..Default::default()
@@ -143,7 +143,7 @@ pub fn build_agent_pod(ar: &AgentRun) -> Result<Pod, Error> {
     })
 }
 
-/// Derive the AgentRun state from the Kubernetes pod's status.
+/// Derive the Session state from the Kubernetes pod's status.
 ///
 /// Priority:
 /// 1. Pod annotation `mob.io/agent-state` (set by agent process for Idle/Busy)
@@ -297,11 +297,11 @@ mod tests {
 
     #[test]
     fn test_build_agent_pod_basic() {
-        use crate::crd::AgentRunSpec;
+        use crate::crd::SessionSpec;
 
-        let mut ar = AgentRun::new(
+        let mut ar = Session::new(
             "test-run",
-            AgentRunSpec {
+            SessionSpec {
                 agent_id: "agent-123".into(),
                 agent_name: "test-agent".into(),
                 agent_template: "python:3.11".into(),
@@ -321,7 +321,7 @@ mod tests {
 
         let labels = meta.labels.as_ref().unwrap();
         assert_eq!(labels.get("app").unwrap(), "mob-agent");
-        assert_eq!(labels.get("mob.io/agent-run").unwrap(), "test-run");
+        assert_eq!(labels.get("mob.io/session").unwrap(), "test-run");
 
         let container = &pod.spec.as_ref().unwrap().containers[0];
         assert_eq!(container.image.as_deref(), Some("python:3.11"));
@@ -333,7 +333,7 @@ mod tests {
             .iter()
             .map(|e| e.name.as_str())
             .collect();
-        assert!(env_names.contains(&"AGENT_RUN_ID"));
+        assert!(env_names.contains(&"SESSION_ID"));
         assert!(env_names.contains(&"AGENT_NAME"));
         assert!(env_names.contains(&"AGENT_SYSTEM_PROMPT"));
         assert!(!env_names.contains(&"MODEL_ENDPOINT"));

@@ -3,7 +3,7 @@
 # local-setup.sh — Bootstrap a Kind cluster with the operator for local mode
 #
 # Local mode: CLI -> service layer -> SQLite. Kind runs only the operator
-# and agent pods for agent-run lifecycle management.
+# and agent pods for session lifecycle management.
 #
 # Usage:
 #   ./scripts/local-setup.sh          # Full setup
@@ -57,7 +57,7 @@ cmd_setup() {
   info "  make local-rebuild-agent    — Rebuild and reload the agent image"
   info "  make local-down             — Tear down the Kind cluster"
   echo
-  info "Note: 'mob agent-run send' uses kubectl port-forward in local mode"
+  info "Note: 'mob session send' uses kubectl port-forward in local mode"
   info "      (pod IPs are not directly routable from host)."
 }
 

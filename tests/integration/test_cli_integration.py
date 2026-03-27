@@ -262,8 +262,8 @@ def test_agent_lifecycle(runner, config_dir):
 
 
 @pytest.mark.integration
-def test_agent_run_lifecycle(runner, config_dir):
-    """Test agent-runs list and agent-run commands."""
+def test_session_lifecycle(runner, config_dir):
+    """Test sessions list and session commands."""
     runner.invoke(cli, ["org", "create", "--identifier", "ar-int-org", "--name", "AR Int Org"])
 
     from mob.config import get_settings
@@ -286,32 +286,32 @@ def test_agent_run_lifecycle(runner, config_dir):
     resp = httpx.get(f"{base}/api/v1/agents", params={"domain_id": domain_id})
     agent_id = next(a["id"] for a in resp.json() if a["name"] == "ar-test-agent")
 
-    # Create run with custom name
+    # Create session with custom name
     result = runner.invoke(cli, ["agent", "run", agent_id, "--name", "my-test-run"])
     assert result.exit_code == 0
     assert "my-test-run" in result.output
 
-    # Create run with auto-generated name
+    # Create session with auto-generated name
     result = runner.invoke(cli, ["agent", "run", agent_id])
     assert result.exit_code == 0
     assert "ar-test-agent-" in result.output
 
-    # List agent-runs
-    result = runner.invoke(cli, ["agent-runs"])
+    # List sessions
+    result = runner.invoke(cli, ["sessions"])
     assert result.exit_code == 0
     assert "my-test-run" in result.output
 
     # List with --agent filter (using agent name)
-    result = runner.invoke(cli, ["agent-runs", "--agent", agent_id])
+    result = runner.invoke(cli, ["sessions", "--agent", agent_id])
     assert result.exit_code == 0
 
     # Show by name
-    result = runner.invoke(cli, ["agent-run", "show", "my-test-run"])
+    result = runner.invoke(cli, ["session", "show", "my-test-run"])
     assert result.exit_code == 0
     assert "my-test-run" in result.output
 
     # Stop by name
-    result = runner.invoke(cli, ["agent-run", "stop", "my-test-run"])
+    result = runner.invoke(cli, ["session", "stop", "my-test-run"])
     assert result.exit_code == 0
     assert "stopped" in result.output.lower()
 

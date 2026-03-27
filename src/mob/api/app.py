@@ -6,10 +6,10 @@ from fastapi import FastAPI
 
 from mob.api.routes import (
     agents,
-    agent_runs,
     domains,
     groups,
     organizations,
+    sessions,
     skills,
     tasks,
     users,
@@ -36,7 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
     app.include_router(groups.router, prefix="/api/v1/groups", tags=["groups"])
     app.include_router(agents.router, prefix="/api/v1/agents", tags=["agents"])
-    app.include_router(agent_runs.router, prefix="/api/v1/agent-runs", tags=["agent-runs"])
+    app.include_router(sessions.router, prefix="/api/v1/sessions", tags=["sessions"])
     app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["tasks"])
     app.include_router(skills.router, prefix="/api/v1/skills", tags=["skills"])
 

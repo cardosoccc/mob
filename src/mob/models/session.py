@@ -1,4 +1,4 @@
-"""AgentRun model."""
+"""Session model."""
 
 import enum
 
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from mob.models.base import Base, TimestampMixin, generate_uuid
 
 
-class AgentRunState(str, enum.Enum):
+class SessionState(str, enum.Enum):
     PENDING = "pending"
     STARTING = "starting"
     IDLE = "idle"
@@ -17,16 +17,16 @@ class AgentRunState(str, enum.Enum):
     FAILED = "failed"
 
 
-class AgentRun(Base, TimestampMixin):
-    __tablename__ = "agent_runs"
+class Session(Base, TimestampMixin):
+    __tablename__ = "sessions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     agent_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False
     )
-    state: Mapped[AgentRunState] = mapped_column(
-        Enum(AgentRunState), default=AgentRunState.PENDING, nullable=False
+    state: Mapped[SessionState] = mapped_column(
+        Enum(SessionState), default=SessionState.PENDING, nullable=False
     )
     pod_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     task_id: Mapped[str | None] = mapped_column(
@@ -34,8 +34,8 @@ class AgentRun(Base, TimestampMixin):
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    agent: Mapped["Agent"] = relationship("Agent", back_populates="runs")  # noqa: F821
-    task: Mapped["Task | None"] = relationship("Task", back_populates="agent_run")  # noqa: F821
+    agent: Mapped["Agent"] = relationship("Agent", back_populates="sessions")  # noqa: F821
+    task: Mapped["Task | None"] = relationship("Task", back_populates="session")  # noqa: F821
 
     def __repr__(self) -> str:
-        return f"<AgentRun(id={self.id}, name={self.name}, state={self.state})>"
+        return f"<Session(id={self.id}, name={self.name}, state={self.state})>"

@@ -1,3 +1,3 @@
-pub mod agent_run;
+pub mod session;
 
-pub use agent_run::{AgentRun, AgentRunSpec, AgentRunStatus};
+pub use session::{Session, SessionSpec, SessionStatus};

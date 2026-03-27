@@ -1,4 +1,4 @@
-"""Agent run CLI commands."""
+"""Session CLI commands."""
 
 import click
 
@@ -14,63 +14,63 @@ def _resolve_agent_filter(agent_ref: str | None, domain_id: str | None) -> str |
     return None
 
 
-@click.command("agent-runs")
+@click.command("sessions")
 @click.option("--agent", "agent_ref", help="Filter by agent (name or position)")
 @agent_filters
 @click.option("--state", help="Filter by state (pending, starting, idle, busy, finished, failed)")
-def agent_runs(agent_ref: str | None, domain_id: str | None, state: str | None):
-    """List agent runs."""
+def sessions(agent_ref: str | None, domain_id: str | None, state: str | None):
+    """List sessions."""
     params = {}
     agent_id = _resolve_agent_filter(agent_ref, domain_id)
     if agent_id:
         params["agent_id"] = agent_id
     if state:
         params["state"] = state
-    data = api_get("/agent-runs", params=params)
+    data = api_get("/sessions", params=params)
     print_table(data, columns=["id", "name", "agent_id", "state", "pod_name", "created_at"])
 
 
-@click.group("agent-run")
-def agent_run():
-    """Manage agent runs."""
+@click.group("session")
+def session():
+    """Manage sessions."""
     pass
 
 
-@agent_run.command("show")
+@session.command("show")
 @click.argument("ref")
 @click.option("--agent", "agent_ref", help="Scope by agent (name or position)")
 @agent_filters
-def agent_run_show(ref: str, agent_ref: str | None, domain_id: str | None):
-    """Show details of an agent run. REF is a name or position number."""
+def session_show(ref: str, agent_ref: str | None, domain_id: str | None):
+    """Show details of a session. REF is a name or position number."""
     agent_id = _resolve_agent_filter(agent_ref, domain_id)
-    run_id = resolve_ref("agent_run", ref, agent_id=agent_id)
-    data = api_get(f"/agent-runs/{run_id}")
+    session_id = resolve_ref("session", ref, agent_id=agent_id)
+    data = api_get(f"/sessions/{session_id}")
     print_detail(data)
 
 
-@agent_run.command("stop")
+@session.command("stop")
 @click.argument("ref")
 @click.option("--agent", "agent_ref", help="Scope by agent (name or position)")
 @agent_filters
-def agent_run_stop(ref: str, agent_ref: str | None, domain_id: str | None):
-    """Stop a running agent instance. REF is a name or position number."""
+def session_stop(ref: str, agent_ref: str | None, domain_id: str | None):
+    """Stop a running session. REF is a name or position number."""
     agent_id = _resolve_agent_filter(agent_ref, domain_id)
-    run_id = resolve_ref("agent_run", ref, agent_id=agent_id)
-    data = api_post(f"/agent-runs/{run_id}/stop")
-    print_success("Agent run stopped.")
+    session_id = resolve_ref("session", ref, agent_id=agent_id)
+    data = api_post(f"/sessions/{session_id}/stop")
+    print_success("Session stopped.")
     print_detail(data)
 
 
-@agent_run.command("logs")
+@session.command("logs")
 @click.argument("ref")
 @click.option("--agent", "agent_ref", help="Scope by agent (name or position)")
 @agent_filters
 @click.option("--tail", default=100, help="Number of log lines")
-def agent_run_logs(ref: str, agent_ref: str | None, domain_id: str | None, tail: int):
-    """Show logs of an agent run. REF is a name or position number."""
+def session_logs(ref: str, agent_ref: str | None, domain_id: str | None, tail: int):
+    """Show logs of a session. REF is a name or position number."""
     agent_id = _resolve_agent_filter(agent_ref, domain_id)
-    run_id = resolve_ref("agent_run", ref, agent_id=agent_id)
-    data = api_get(f"/agent-runs/{run_id}/logs", params={"tail": tail})
+    session_id = resolve_ref("session", ref, agent_id=agent_id)
+    data = api_get(f"/sessions/{session_id}/logs", params={"tail": tail})
     status = data.get("status", {})
     if status:
         click.echo(f"State: {status.get('state', 'unknown')}")
@@ -87,16 +87,16 @@ def agent_run_logs(ref: str, agent_ref: str | None, domain_id: str | None, tail:
             click.echo(line)
 
 
-@agent_run.command("send")
+@session.command("send")
 @click.argument("ref")
 @click.option("--agent", "agent_ref", help="Scope by agent (name or position)")
 @agent_filters
 @click.option("--message", required=True, help="Message to send")
-def agent_run_send(ref: str, agent_ref: str | None, domain_id: str | None, message: str):
+def session_send(ref: str, agent_ref: str | None, domain_id: str | None, message: str):
     """Send a message to a running agent. REF is a name or position number."""
     agent_id = _resolve_agent_filter(agent_ref, domain_id)
-    run_id = resolve_ref("agent_run", ref, agent_id=agent_id)
-    result = api_post(f"/agent-runs/{run_id}/send", {"message": message})
+    session_id = resolve_ref("session", ref, agent_id=agent_id)
+    result = api_post(f"/sessions/{session_id}/send", {"message": message})
     if result and result.get("response"):
         click.echo(result["response"])
     else:

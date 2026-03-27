@@ -13,7 +13,7 @@ focus: open-ended ideation for young AI agent orchestration platform
 - **Stack:** Python 3.11+ / FastAPI (async) / SQLAlchemy (async) / PostgreSQL / Kubernetes
 - **CLI:** Click-based with dual-mode: local SQLite backend vs remote HTTP API client
 - **Infra:** Kind for local dev, Kustomize deploys (dev/staging/prod), Terraform (AWS EKS/RDS/VPC, GCP stub)
-- **Domain models:** agents, tasks, skills, domains, groups, organizations, users, agent_runs
+- **Domain models:** agents, tasks, skills, domains, groups, organizations, users, sessions
 - **Maturity:** 5 commits on main, no README, no CI, no documentation
 - **Key gaps:** auth/ and cluster/ modules are empty stubs; Alembic dep installed but never bootstrapped; lint tools referenced in Makefile but missing from dev deps; K8sManager fully implemented but never called from services
 - **No prior learnings** in docs/solutions/
@@ -22,9 +22,9 @@ focus: open-ended ideation for young AI agent orchestration platform
 
 ### 1. Close the Core Orchestration Loop
 
-**Description:** Wire `K8sManager.create_agent_pod()` into `create_agent_run()`, add a background reconciler that watches pod phase and drives `AgentRun.state` transitions, enforce a state transition guard matrix at the service layer, and connect the `agent logs`/`agent attach` CLI stubs to the existing `K8sManager.get_pod_logs()`/`exec_in_pod()` methods.
+**Description:** Wire `K8sManager.create_agent_pod()` into `create_session()`, add a background reconciler that watches pod phase and drives `Session.state` transitions, enforce a state transition guard matrix at the service layer, and connect the `agent logs`/`agent attach` CLI stubs to the existing `K8sManager.get_pod_logs()`/`exec_in_pod()` methods.
 
-**Rationale:** This is the entire value proposition of mob. Every model, route, and infra component exists to support pod-based agent execution — which currently doesn't happen. `create_agent_run` writes a DB row in PENDING and stops. `K8sManager` is fully implemented but imported by nothing in the service layer. Runs sit in PENDING forever with no pod, no logs, no observable behavior.
+**Rationale:** This is the entire value proposition of mob. Every model, route, and infra component exists to support pod-based agent execution — which currently doesn't happen. `create_session` writes a DB row in PENDING and stops. `K8sManager` is fully implemented but imported by nothing in the service layer. Runs sit in PENDING forever with no pod, no logs, no observable behavior.
 
 **Downsides:** Large surface area — touches services, K8s layer, CLI, and requires deciding between callback-based vs watch-based reconciliation. The reconciler introduces a background process that needs lifecycle management.
 
@@ -96,7 +96,7 @@ focus: open-ended ideation for young AI agent orchestration platform
 
 **Description:** Add a `mob agent-entrypoint` subcommand that runs inside agent pods — polls for tasks via the remote API, executes work, and reports state transitions back to the control plane. This makes `mob` itself the agent binary rather than requiring separate unvalidated Docker images specified via the opaque `agent_template` string field.
 
-**Rationale:** Currently `agent_template` is a `String(500)` with no connection to anything in the codebase. `K8sManager` passes it as the pod image but nothing validates it. If mob is the agent runtime, the control plane and agents share the same binary, the existing Dockerfile works as-is, and the `AGENT_RUN_ID` env var already injected into pods has a consumer.
+**Rationale:** Currently `agent_template` is a `String(500)` with no connection to anything in the codebase. `K8sManager` passes it as the pod image but nothing validates it. If mob is the agent runtime, the control plane and agents share the same binary, the existing Dockerfile works as-is, and the `SESSION_ID` env var already injected into pods has a consumer.
 
 **Downsides:** Bold architectural bet that limits agent image flexibility. Requires the core loop (#1) to be working first. May constrain future multi-language agent support.
 
@@ -111,7 +111,7 @@ focus: open-ended ideation for young AI agent orchestration platform
 | 1 | Implement auth module (Keycloak/JWT) | Premature — no real users or tenants; heavy integration for a 5-commit project |
 | 2 | Add pagination to list endpoints | Zero production traffic; premature optimization |
 | 3 | Agent template registry/validation | Simple format validation suffices; full registry is pre-product |
-| 4 | AgentRun event log (state history table) | Blocked by Alembic bootstrap; no consumers exist yet |
+| 4 | Session event log (state history table) | Blocked by Alembic bootstrap; no consumers exist yet |
 | 5 | Per-agent resource profiles | Hardcoded defaults are fine until real workloads prove otherwise |
 | 6 | Structured definition_of_done | Product design question requiring an LLM evaluation protocol that doesn't exist |
 | 7 | Auto-migration in dev rebuild | Trivial follow-on once Alembic is bootstrapped; not standalone |

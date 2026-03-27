@@ -120,6 +120,6 @@ def agent_run_cmd(ref: str, domain_id: str | None, task_id: str | None, run_name
         payload["task_id"] = task_id
     if run_name:
         payload["name"] = run_name
-    data = api_post("/agent-runs", payload)
-    print_success(f"Agent run '{data['name']}' created (state: {data['state']}).")
+    data = api_post("/sessions", payload)
+    print_success(f"Session '{data['name']}' created (state: {data['state']}).")
     print_detail(data)

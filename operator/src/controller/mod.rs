@@ -1,3 +1,3 @@
-pub mod agent_run_controller;
+pub mod session_controller;
 
-pub use agent_run_controller::{reconcile, error_policy, Context};
+pub use session_controller::{reconcile, error_policy, Context};

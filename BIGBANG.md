@@ -29,7 +29,7 @@
 	- initially, a template using pydantic ai should be developed;
 	- there isn't a separate table/entity for agent templates, is just an attribute of the agent;
 
-- agent run
+- session
 	- represents the instantiation of an agent;
 	- effectively is a pod running on kubernetes with the containerized agent;
 	- can be in one of the following states:
@@ -47,7 +47,7 @@
 
 - task
 	- an instruction that is given to some agent;
-	- have a definition of done, which is a condition that should be met to consider the agent run as sucessful;
+	- have a definition of done, which is a condition that should be met to consider the session as sucessful;
 
 - user
 	- an user of the system
@@ -143,11 +143,11 @@
 - kubernetes
 - postgres/sqlite with sqlalchemy
 - keycloak for authentication / authorization / identity provider
-- kubernetes-native crds for agents, agentruns and modelapis, built with kube-rs;
+- kubernetes-native crds for agents, sessions and modelapis, built with kube-rs;
 
 ## tecnical considerations
 
-- for maintaining the state of AgentRuns should be used a kubernetes-native controller, developed with kube-rs to avoid having to use some external solution to keep track of agent executions;
+- for maintaining the state of Sessions should be used a kubernetes-native controller, developed with kube-rs to avoid having to use some external solution to keep track of agent executions;
 - user table should be adapted to keycloak's needs
 - local configurations should be stored in ~/.mob/config.json
 - use uv to manage environments and dependencies

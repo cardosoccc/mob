@@ -1,4 +1,4 @@
-"""Kubernetes manager for agent runs."""
+"""Kubernetes manager for sessions."""
 
 import logging
 from typing import Any
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class K8sManager:
-    """Manages Kubernetes resources for agent runs."""
+    """Manages Kubernetes resources for sessions."""
 
     def __init__(self, namespace: str | None = None, kubeconfig: str | None = None):
         self.namespace = namespace or get_settings().kubernetes_namespace
@@ -45,7 +45,7 @@ class K8sManager:
         model_endpoint: str | None = None,
         env_vars: dict[str, str] | None = None,
     ) -> str:
-        """Create a pod for an agent run. Returns the pod name."""
+        """Create a pod for a session. Returns the pod name."""
         self._ensure_client()
 
         pod_name = f"mob-agent-{run_id[:8]}"
@@ -55,7 +55,7 @@ class K8sManager:
             env.append(self._client.V1EnvVar(name="AGENT_SYSTEM_PROMPT", value=system_prompt))
         if model_endpoint:
             env.append(self._client.V1EnvVar(name="MODEL_ENDPOINT", value=model_endpoint))
-        env.append(self._client.V1EnvVar(name="AGENT_RUN_ID", value=run_id))
+        env.append(self._client.V1EnvVar(name="SESSION_ID", value=run_id))
         env.append(self._client.V1EnvVar(name="AGENT_NAME", value=agent_name))
 
         if env_vars:
@@ -68,7 +68,7 @@ class K8sManager:
                 namespace=self.namespace,
                 labels={
                     "app": "mob-agent",
-                    "mob.io/agent-run": run_id,
+                    "mob.io/session": run_id,
                     "mob.io/agent-name": agent_name,
                 },
             ),
@@ -89,7 +89,7 @@ class K8sManager:
         )
 
         self._core_v1.create_namespaced_pod(namespace=self.namespace, body=pod)
-        logger.info(f"Created pod {pod_name} for agent run {run_id}")
+        logger.info(f"Created pod {pod_name} for session {run_id}")
         return pod_name
 
     def delete_agent_pod(self, pod_name: str) -> None:

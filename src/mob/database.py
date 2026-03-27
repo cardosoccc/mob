@@ -35,6 +35,7 @@ async def get_session() -> AsyncSession:
 async def init_db(database_url: str | None = None) -> None:
     engine = get_engine(database_url)
     async with engine.begin() as conn:
+        await conn.run_sync(_rename_legacy_tables)
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_add_missing_columns)
 
@@ -44,9 +45,19 @@ async def migrate_db(database_url: str | None = None) -> list[str]:
     engine = get_engine(database_url)
     actions: list[str] = []
     async with engine.begin() as conn:
+        await conn.run_sync(_rename_legacy_tables)
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(lambda c: _add_missing_columns(c, actions=actions))
     return actions
+
+
+def _rename_legacy_tables(conn) -> None:
+    """Rename legacy table names to current names."""
+    inspector = inspect(conn)
+    renames = {"agent_runs": "sessions"}
+    for old_name, new_name in renames.items():
+        if inspector.has_table(old_name) and not inspector.has_table(new_name):
+            conn.execute(text(f"ALTER TABLE {old_name} RENAME TO {new_name}"))
 
 
 def _add_missing_columns(conn, actions: list[str] | None = None) -> None:

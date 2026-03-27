@@ -11,10 +11,10 @@ metadata:
   namespace: mob
 rules:
   - apiGroups: ["mob.io"]
-    resources: ["agentruns"]
+    resources: ["sessions"]
     verbs: ["get", "list", "create", "delete"]
   - apiGroups: ["mob.io"]
-    resources: ["agentruns/status"]
+    resources: ["sessions/status"]
     verbs: ["get"]
   - apiGroups: [""]
     resources: ["pods"]

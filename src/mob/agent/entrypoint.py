@@ -25,7 +25,7 @@ _state: str = "starting"
 _lock = asyncio.Lock()
 
 # Environment configuration
-AGENT_RUN_ID = os.environ.get("AGENT_RUN_ID", "unknown")
+SESSION_ID = os.environ.get("SESSION_ID", "unknown")
 AGENT_NAME = os.environ.get("AGENT_NAME", "unnamed")
 SYSTEM_PROMPT = os.environ.get("AGENT_SYSTEM_PROMPT", "You are a helpful AI assistant.")
 MODEL_ENDPOINT = os.environ.get("MODEL_ENDPOINT", "openai:gpt-4o")
@@ -82,7 +82,7 @@ async def _set_state(new_state: str) -> None:
 async def lifespan(app: FastAPI):
     """Set agent to idle on startup, finished on shutdown."""
     await _set_state("idle")
-    logger.info("Agent %s (%s) ready", AGENT_NAME, AGENT_RUN_ID)
+    logger.info("Agent %s (%s) ready", AGENT_NAME, SESSION_ID)
     yield
     await _set_state("finished")
     logger.info("Agent shutting down gracefully")
@@ -141,7 +141,7 @@ async def message(req: MessageRequest, authorization: str | None = Header(defaul
 
 
 def main():
-    logger.info("Starting agent %s (run: %s)", AGENT_NAME, AGENT_RUN_ID)
+    logger.info("Starting agent %s (run: %s)", AGENT_NAME, SESSION_ID)
     logger.info("Model: %s", MODEL_ENDPOINT)
     uvicorn.run(app, host="0.0.0.0", port=8081, log_level="info")
 

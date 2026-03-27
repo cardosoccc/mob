@@ -14,7 +14,7 @@ mob treats AI agents as first-class infrastructure. Each agent is a container. E
 - **Provider agnostic** — Use any LLM provider (OpenAI, Anthropic, local models). Agents are Docker images — bring your own or use the default pydantic-ai image.
 - **Works anywhere** — Local development with Kind + SQLite. Production with EKS/GKE + PostgreSQL. Same CLI, same workflow.
 - **Multi-tenant** — Organizations contain domains. Domains contain agents. Groups control access. Built for teams from day one.
-- **Operator pattern** — A Rust controller reconciles desired state (AgentRun CRDs) with actual state (pod annotations). State is never guessed — it's observed.
+- **Operator pattern** — A Rust controller reconciles desired state (Session CRDs) with actual state (pod annotations). State is never guessed — it's observed.
 
 ## Quick Start
 
@@ -67,18 +67,18 @@ mob agent create \
 mob agent run 1
 
 # Wait for it to become idle
-mob agent-runs
+mob sessions
 
 # Chat
-mob agent-run send 1 --message "What is the capital of France?"
+mob session send 1 --message "What is the capital of France?"
 # → Paris.
 
-mob agent-run send 1 --message "And of Germany?"
+mob session send 1 --message "And of Germany?"
 # → Berlin.
 # (conversation history is maintained)
 
 # Stop the agent
-mob agent-run stop 1
+mob session stop 1
 ```
 
 ## Architecture
@@ -109,7 +109,7 @@ mob agent-run stop 1
                     │                              │
                     │  ┌────────────────────────┐  │
                     │  │  mob Operator (Rust)    │  │
-                    │  │  watches AgentRun CRDs  │  │
+                    │  │  watches Session CRDs   │  │
                     │  │  reconciles pod state   │  │
                     │  └───────────┬────────────┘  │
                     │              │                │
@@ -131,14 +131,14 @@ mob agent-run stop 1
 | **API** | Python/FastAPI | REST API server (port 8080). Manages resources, forwards messages. |
 | **Operator** | Rust/kube-rs | Kubernetes controller. Watches CRDs, creates pods, syncs state. |
 | **Agent Pod** | Python/pydantic-ai | FastAPI server (port 8081) inside each agent pod. Processes messages with LLM. |
-| **Database** | SQLite or PostgreSQL | Stores organizations, domains, agents, runs, tasks, skills. |
+| **Database** | SQLite or PostgreSQL | Stores organizations, domains, agents, sessions, tasks, skills. |
 
 ### Message Flow
 
 ```
-mob agent-run send REF --message "hello"
-  → CLI resolves REF to run_id
-  → API looks up AgentRun CR status (state, pod name)
+mob session send REF --message "hello"
+  → CLI resolves REF to session_id
+  → API looks up Session CR status (state, pod name)
   → API gets pod IP from K8s API
   → API POSTs to http://<pod_ip>:8081/message
   → Agent sets annotation mob.io/agent-state=busy
@@ -158,7 +158,7 @@ pending → starting → idle ↔ busy → finished
 
 | State | Meaning |
 |-------|---------|
-| `pending` | AgentRun created, waiting for pod |
+| `pending` | Session created, waiting for pod |
 | `starting` | Pod created, container initializing |
 | `idle` | Ready to accept messages |
 | `busy` | Processing a message |
@@ -167,7 +167,7 @@ pending → starting → idle ↔ busy → finished
 
 State is tracked at three levels:
 1. **Pod annotations** — Agent writes `mob.io/agent-state` via K8s API
-2. **CR status** — Operator reads annotations, updates AgentRun CR `.status.state`
+2. **CR status** — Operator reads annotations, updates Session CR `.status.state`
 3. **Database** — API reads CR status for live state
 
 ## CLI Reference
@@ -211,18 +211,18 @@ mob agent edit 1 --model-endpoint "openai:gpt-4o"
 mob agent delete 1
 ```
 
-### Agent Runs
+### Sessions
 
 ```bash
-mob agent run researcher                     # Start an agent
+mob agent run researcher                     # Start a session
 mob agent run 1 --name "my-session"          # With custom name
-mob agent-runs                               # List all runs
-mob agent-runs --agent researcher            # Filter by agent
-mob agent-runs --state idle                  # Filter by state
-mob agent-run show 1                         # Show details
-mob agent-run logs 1 --tail 50              # View pod logs
-mob agent-run send 1 --message "Hello!"     # Send message
-mob agent-run stop 1                         # Stop the agent
+mob sessions                                 # List all sessions
+mob sessions --agent researcher              # Filter by agent
+mob sessions --state idle                    # Filter by state
+mob session show 1                           # Show details
+mob session logs 1 --tail 50                # View pod logs
+mob session send 1 --message "Hello!"       # Send message
+mob session stop 1                           # Stop the session
 ```
 
 ### Users & Groups
@@ -304,7 +304,7 @@ Any Docker image can be an agent. The contract:
 
 1. **Listen on port 8081** with at least `GET /health` and `POST /message`
 2. **Read environment variables:**
-   - `AGENT_RUN_ID` — Run identifier
+   - `SESSION_ID` — Session identifier
    - `AGENT_NAME` — Agent name
    - `AGENT_SYSTEM_PROMPT` — System prompt (if set)
    - `MODEL_ENDPOINT` — LLM endpoint (if set)
@@ -327,13 +327,13 @@ Agent pods automatically mount this secret as environment variables (optional �
 
 ## Kubernetes Resources
 
-### AgentRun CRD
+### Session CRD
 
 ```yaml
 apiVersion: mob.io/v1
-kind: AgentRun
+kind: Session
 metadata:
-  name: ar-abc12345
+  name: s-abc12345
 spec:
   agentId: "uuid"
   agentName: "researcher"
@@ -342,7 +342,7 @@ spec:
   modelEndpoint: "anthropic:claude-haiku-4-5-20251001"
 status:
   state: Idle
-  podName: mob-agent-ar-abc12345
+  podName: mob-agent-s-abc12345
   lastTransitionTime: "2026-03-24T07:00:00Z"
 ```
 
@@ -353,7 +353,7 @@ Three separate service accounts with least-privilege roles:
 | Service Account | Permissions | Scope |
 |-----------------|-------------|-------|
 | `mob-operator` | Manage CRDs, pods, events | ClusterRole |
-| `mob-api` | Read pods, CRUD agentruns | Namespace Role |
+| `mob-api` | Read pods, CRUD sessions | Namespace Role |
 | `mob-agent` | Get/patch pods (self-annotate) | Namespace Role |
 
 ### Deployments
@@ -423,7 +423,7 @@ mob/
 ├── operator/
 │   └── src/
 │       ├── main.rs         # Controller entrypoint
-│       ├── crd/            # AgentRun CRD definition
+│       ├── crd/            # Session CRD definition
 │       ├── controller/     # Reconciliation logic
 │       └── resources/      # Pod builder
 ├── deploy/

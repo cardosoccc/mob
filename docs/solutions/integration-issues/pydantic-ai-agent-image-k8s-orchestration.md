@@ -16,7 +16,7 @@ severity: high
 components:
   - src/mob/agent/ (FastAPI agent entrypoint, pydantic-ai integration)
   - operator/src/resources/pod.rs (Rust operator pod builder)
-  - src/mob/services/agent_runs.py (send_message service)
+  - src/mob/services/sessions.py (send_message service)
   - deploy/base/ (K8s RBAC manifests, kustomization)
   - Dockerfile.agent (agent container image)
   - scripts/dev-setup.sh (Kind cluster bootstrap)
@@ -24,7 +24,7 @@ symptoms:
   - Agent pod CrashLoopBackOff due to missing API key at module-level Agent() init
   - ImagePullBackOff in Kind cluster for operator and agent images
   - kube-proxy CrashLoopBackOff from exhausted inotify watches
-  - API pod 403 Forbidden when creating AgentRun custom resources
+  - API pod 403 Forbidden when creating Session custom resources
   - HTTP 200 returned for error responses instead of 409/502
   - Raw Python exception details leaked to clients in LLM error paths
   - Async event loop blocked by synchronous K8s API calls
@@ -214,8 +214,8 @@ HTTP RESPONSE CORRECTNESS
 1. Build and load images: `make build-agent && kind load docker-image mob-agent-pydantic:latest`
 2. Create secrets: `kubectl create secret generic mob-agent-secrets --from-literal=ANTHROPIC_API_KEY=<key>`
 3. Create agent and run via API
-4. Confirm pod starts and reaches `Idle` state: `kubectl get agentruns`
-5. Send message: `POST /agent-runs/{id}/send` returns 200 with LLM response
+4. Confirm pod starts and reaches `Idle` state: `kubectl get sessions`
+5. Send message: `POST /sessions/{id}/send` returns 200 with LLM response
 6. Send while busy: returns 409 (not 200)
 7. Multi-turn test: agent remembers context from previous messages
 8. LLM timeout: returns 504 after configured timeout
@@ -225,4 +225,4 @@ HTTP RESPONSE CORRECTNESS
 - **Plan:** `docs/plans/2026-03-24-004-feat-default-pydantic-ai-agent-image-plan.md`
 - **Predecessor:** `docs/plans/2026-03-23-001-fix-wire-agent-orchestration-loop-plan.md` (deferred `send_message` — now implemented)
 - **Ideation:** `docs/ideation/2026-03-23-open-ideation.md` Idea #7 (Agent Runtime Entrypoint — now implemented)
-- **CLI restructure:** `docs/plans/2026-03-24-002-feat-agent-run-commands-restructure-plan.md` (`agent-run send` command)
+- **CLI restructure:** `docs/plans/2026-03-24-002-feat-agent-run-commands-restructure-plan.md` (`session send` command)

@@ -8,7 +8,7 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
-  - crds/agentrun.yaml
+  - crds/session.yaml
   - operator/serviceaccount.yaml
   - operator/rbac.yaml
   - operator/deployment.yaml
