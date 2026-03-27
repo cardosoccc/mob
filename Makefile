@@ -1,12 +1,13 @@
-.PHONY: setup build build-agent test run lint format deploy clean install \
-       dev-up dev-down dev-logs \
-       dev-kind-up dev-kind-down dev-kind-status dev-kind-logs \
-       dev-kind-psql dev-kind-rebuild dev-kind-rebuild-agent dev-kind-reset \
+.PHONY: setup build build-agent test lint format deploy clean install migrate \
+       local-up local-down local-status local-reset \
+       local-rebuild-operator local-rebuild-agent \
+       dev-up dev-down dev-status dev-logs dev-psql \
+       dev-rebuild dev-rebuild-agent dev-reset \
        deploy-dev deploy-staging deploy-production \
        infra-init-aws infra-init-gcp \
        infra-plan-aws infra-plan-gcp \
        infra-apply-aws infra-apply-gcp \
-       migrate
+       run
 
 PYTHON := python3
 UV := uv
@@ -30,7 +31,7 @@ migrate:
 install:
 	$(UV) tool install --force --editable .
 
-## build: build the Docker image
+## build: build the API Docker image
 build:
 	docker build -t $(APP_IMAGE):$(APP_TAG) .
 
@@ -42,51 +43,74 @@ build-agent:
 test:
 	$(UV) run pytest tests/ -v
 
-## dev-up: start local development environment (Kind + PostgreSQL)
-dev-up: dev-kind-up
+# ---------- Local mode targets ----------
 
-## dev-down: stop local development environment
-dev-down: dev-kind-down
+## local-up: start local environment (Kind + operator, SQLite, no PostgreSQL)
+local-up:
+	./scripts/local-setup.sh setup
 
-## dev-logs: tail logs from local development environment
-dev-logs: dev-kind-logs
+## local-down: tear down local environment
+local-down:
+	./scripts/local-setup.sh teardown
 
-## run: launch the application locally with kind cluster (legacy alias for dev-kind-up)
-run: dev-kind-up
+## local-status: show local environment status
+local-status:
+	./scripts/local-setup.sh status
 
-## dev-kind-up: create Kind cluster with local PostgreSQL and deploy the app
-dev-kind-up:
+## local-reset: destroy and recreate local environment
+local-reset:
+	./scripts/local-setup.sh reset
+
+## local-rebuild-operator: rebuild operator image and redeploy
+local-rebuild-operator:
+	docker build -t mob-operator:latest -f ./operator/Dockerfile ./operator/
+	kind load docker-image mob-operator:latest --name $(KIND_CLUSTER)
+	kubectl --context $(KIND_CTX) -n mob rollout restart deployment/mob-operator
+
+## local-rebuild-agent: rebuild agent image and load to Kind
+local-rebuild-agent: build-agent
+	kind load docker-image $(AGENT_IMAGE):$(AGENT_TAG) --name $(KIND_CLUSTER)
+
+# ---------- Dev mode targets ----------
+
+## dev-up: start dev environment (Kind + PostgreSQL + API)
+dev-up:
 	./scripts/dev-setup.sh setup
 
-## dev-kind-down: tear down the Kind cluster and all resources
-dev-kind-down:
+## dev-down: stop dev environment
+dev-down:
 	./scripts/dev-setup.sh teardown
 
-## dev-kind-status: show pod and service status in the local cluster
-dev-kind-status:
+## dev-status: show dev environment status
+dev-status:
 	./scripts/dev-setup.sh status
 
-## dev-kind-logs: tail API pod logs
-dev-kind-logs:
+## dev-logs: tail API pod logs
+dev-logs:
 	kubectl --context $(KIND_CTX) -n mob logs -f -l app.kubernetes.io/component=api
 
-## dev-kind-psql: open a psql shell against the local PostgreSQL
-dev-kind-psql:
+## dev-psql: open psql shell against local PostgreSQL
+dev-psql:
 	docker exec -it mob-postgres psql -U mob_admin -d mob
 
-## dev-kind-rebuild: rebuild the Docker image and redeploy to the Kind cluster
-dev-kind-rebuild: build
+## dev-rebuild: rebuild API image and redeploy to Kind cluster
+dev-rebuild: build
 	kind load docker-image $(APP_IMAGE):$(APP_TAG) --name $(KIND_CLUSTER)
 	kubectl --context $(KIND_CTX) -n mob rollout restart deployment/mob-api
 	kubectl --context $(KIND_CTX) -n mob rollout status deployment/mob-api --timeout=120s
 
-## dev-kind-rebuild-agent: rebuild the agent image and load to Kind cluster
-dev-kind-rebuild-agent: build-agent
+## dev-rebuild-agent: rebuild agent image and load to Kind
+dev-rebuild-agent: build-agent
 	kind load docker-image $(AGENT_IMAGE):$(AGENT_TAG) --name $(KIND_CLUSTER)
 
-## dev-kind-reset: destroy and recreate the full local environment
-dev-kind-reset:
+## dev-reset: destroy and recreate dev environment
+dev-reset:
 	./scripts/dev-setup.sh reset
+
+## run: legacy alias for dev-up
+run: dev-up
+
+# ---------- Quality targets ----------
 
 ## lint: run flake8 and mypy
 lint:
@@ -96,6 +120,8 @@ lint:
 ## format: run black formatter
 format:
 	$(UV) run black src/ tests/
+
+# ---------- Deployment targets ----------
 
 ## deploy-dev: deploy to dev environment (kind cluster)
 deploy-dev:
@@ -108,6 +134,8 @@ deploy-staging:
 ## deploy-production: deploy to production environment
 deploy-production:
 	kubectl apply -k deploy/overlays/production/
+
+# ---------- Infrastructure targets ----------
 
 ## infra-init-aws: initialize Terraform for AWS
 infra-init-aws:
@@ -132,6 +160,8 @@ infra-plan-gcp:
 ## infra-apply-gcp: apply GCP infrastructure changes
 infra-apply-gcp:
 	cd infra/gcp && terraform apply -var-file=../environments/$(ENV)/gcp.tfvars
+
+# ---------- Cleanup ----------
 
 ## clean: remove build artifacts and kind cluster
 clean:
