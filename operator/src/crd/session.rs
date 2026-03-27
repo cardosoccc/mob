@@ -2,21 +2,21 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// Spec for an AgentRun custom resource.
+/// Spec for a Session custom resource.
 /// The Python API writes .spec; the operator writes .status.
 #[derive(CustomResource, Serialize, Deserialize, Default, Debug, Clone, JsonSchema)]
 #[kube(
     group = "mob.io",
     version = "v1",
-    kind = "AgentRun",
+    kind = "Session",
     namespaced,
-    status = "AgentRunStatus",
-    shortname = "ar",
+    status = "SessionStatus",
+    shortname = "sess",
     printcolumn = r#"{"name":"State","type":"string","jsonPath":".status.state"}"#,
     printcolumn = r#"{"name":"Agent","type":"string","jsonPath":".spec.agentName"}"#,
     printcolumn = r#"{"name":"Pod","type":"string","jsonPath":".status.podName"}"#
 )]
-pub struct AgentRunSpec {
+pub struct SessionSpec {
     /// ID of the agent in the mob database.
     #[serde(rename = "agentId")]
     pub agent_id: String,
@@ -37,14 +37,14 @@ pub struct AgentRunSpec {
     #[serde(rename = "modelEndpoint", default, skip_serializing_if = "Option::is_none")]
     pub model_endpoint: Option<String>,
 
-    /// Optional task ID to associate with this run.
+    /// Optional task ID to associate with this session.
     #[serde(rename = "taskId", default, skip_serializing_if = "Option::is_none")]
     pub task_id: Option<String>,
 }
 
 /// Status written by the operator to reflect observed pod state.
 #[derive(Deserialize, Serialize, Clone, Debug, Default, JsonSchema)]
-pub struct AgentRunStatus {
+pub struct SessionStatus {
     /// Current state: Pending, Starting, Idle, Busy, Finished, Failed.
     pub state: String,
 
@@ -52,7 +52,7 @@ pub struct AgentRunStatus {
     #[serde(rename = "podName", default, skip_serializing_if = "Option::is_none")]
     pub pod_name: Option<String>,
 
-    /// Error message if the run failed.
+    /// Error message if the session failed.
     #[serde(rename = "errorMessage", default, skip_serializing_if = "Option::is_none")]
     pub error_message: Option<String>,
 

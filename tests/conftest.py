@@ -40,6 +40,17 @@ async def session(engine) -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+@pytest.fixture(autouse=True)
+def _reset_k8s_state(monkeypatch):
+    """Prevent unit tests from hitting a live K8s cluster."""
+    import mob.services.sessions as sess_mod
+    sess_mod._k8s_custom_api = None
+    sess_mod._k8s_core_api = None
+    sess_mod._k8s_config_loaded = False
+    monkeypatch.setattr(sess_mod, "_try_get_k8s_custom_api", lambda: None)
+    monkeypatch.setattr(sess_mod, "_try_get_k8s_core_api", lambda: None)
+
+
 @pytest_asyncio.fixture
 async def client(engine) -> AsyncGenerator[AsyncClient, None]:
     from mob.api.app import create_app

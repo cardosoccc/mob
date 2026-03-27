@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mob.services.agent_runs import (
+from mob.services.sessions import (
     _get_free_port,
     _send_via_port_forward,
 )
@@ -40,9 +40,9 @@ async def test_send_via_port_forward_success():
     mock_client.post = AsyncMock(return_value=mock_response)
 
     with (
-        patch("mob.services.agent_runs.get_settings") as mock_settings,
-        patch("mob.services.agent_runs._get_free_port", return_value=12345),
-        patch("mob.services.agent_runs._get_http_client", return_value=mock_client),
+        patch("mob.services.sessions.get_settings") as mock_settings,
+        patch("mob.services.sessions._get_free_port", return_value=12345),
+        patch("mob.services.sessions._get_http_client", return_value=mock_client),
         patch("asyncio.create_subprocess_exec", return_value=mock_proc),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
@@ -74,8 +74,8 @@ async def test_send_via_port_forward_process_fails():
     mock_proc.wait = AsyncMock()
 
     with (
-        patch("mob.services.agent_runs.get_settings") as mock_settings,
-        patch("mob.services.agent_runs._get_free_port", return_value=12345),
+        patch("mob.services.sessions.get_settings") as mock_settings,
+        patch("mob.services.sessions._get_free_port", return_value=12345),
         patch("asyncio.create_subprocess_exec", return_value=mock_proc),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
@@ -106,9 +106,9 @@ async def test_send_via_port_forward_agent_busy():
     mock_client.post = AsyncMock(return_value=mock_response)
 
     with (
-        patch("mob.services.agent_runs.get_settings") as mock_settings,
-        patch("mob.services.agent_runs._get_free_port", return_value=12345),
-        patch("mob.services.agent_runs._get_http_client", return_value=mock_client),
+        patch("mob.services.sessions.get_settings") as mock_settings,
+        patch("mob.services.sessions._get_free_port", return_value=12345),
+        patch("mob.services.sessions._get_http_client", return_value=mock_client),
         patch("asyncio.create_subprocess_exec", return_value=mock_proc),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):

@@ -129,15 +129,15 @@ class AgentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ─── AgentRun ───────────────────────────────────────────────────
+# ─── Session ───────────────────────────────────────────────────
 
-class AgentRunCreate(BaseModel):
+class SessionCreate(BaseModel):
     agent_id: str
     task_id: str | None = None
     name: str | None = Field(None, min_length=1, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*[a-z0-9]$")
 
 
-class AgentRunResponse(BaseModel):
+class SessionResponse(BaseModel):
     id: str
     name: str
     agent_id: str
@@ -198,7 +198,7 @@ class SkillResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ─── Agent Run Send Message ────────────────────────────────────
+# ─── Session Send Message ──────────────────────────────────────
 
-class AgentRunSendMessage(BaseModel):
+class SessionSendMessage(BaseModel):
     message: str = Field(..., min_length=1)

@@ -9,7 +9,7 @@ from mob.models.domain import Domain
 from mob.models.user import User
 from mob.models.group import Group, GroupMember
 from mob.models.agent import Agent, AgentSkill
-from mob.models.agent_run import AgentRun, AgentRunState
+from mob.models.session import Session, SessionState
 from mob.models.task import Task
 from mob.models.skill import Skill
 
@@ -185,7 +185,7 @@ async def test_create_task(session):
 
 
 @pytest.mark.asyncio
-async def test_create_agent_run(session):
+async def test_create_session(session):
     org = Organization(identifier="org-ar", name="Org AR")
     session.add(org)
     await session.flush()
@@ -198,19 +198,19 @@ async def test_create_agent_run(session):
     session.add(agent)
     await session.flush()
 
-    run = AgentRun(name="run-agent-abc12345", agent_id=agent.id, state=AgentRunState.PENDING)
-    session.add(run)
+    sess = Session(name="run-agent-abc12345", agent_id=agent.id, state=SessionState.PENDING)
+    session.add(sess)
     await session.commit()
 
-    result = await session.execute(select(AgentRun).where(AgentRun.agent_id == agent.id))
+    result = await session.execute(select(Session).where(Session.agent_id == agent.id))
     fetched = result.scalar_one()
-    assert fetched.state == AgentRunState.PENDING
+    assert fetched.state == SessionState.PENDING
     assert fetched.name == "run-agent-abc12345"
 
 
 @pytest.mark.asyncio
-async def test_agent_run_states(session):
-    """Test all valid agent run states."""
+async def test_session_states(session):
+    """Test all valid session states."""
     org = Organization(identifier="org-ars", name="Org ARS")
     session.add(org)
     await session.flush()
@@ -223,20 +223,20 @@ async def test_agent_run_states(session):
     session.add(agent)
     await session.flush()
 
-    for i, state in enumerate(AgentRunState):
-        run = AgentRun(name=f"state-agent-{state.value}-{i}", agent_id=agent.id, state=state)
-        session.add(run)
+    for i, state in enumerate(SessionState):
+        sess = Session(name=f"state-agent-{state.value}-{i}", agent_id=agent.id, state=state)
+        session.add(sess)
 
     await session.commit()
 
-    result = await session.execute(select(AgentRun).where(AgentRun.agent_id == agent.id))
-    runs = result.scalars().all()
-    states = {r.state for r in runs}
+    result = await session.execute(select(Session).where(Session.agent_id == agent.id))
+    sessions = result.scalars().all()
+    states = {s.state for s in sessions}
     assert states == {
-        AgentRunState.PENDING,
-        AgentRunState.STARTING,
-        AgentRunState.IDLE,
-        AgentRunState.BUSY,
-        AgentRunState.FINISHED,
-        AgentRunState.FAILED,
+        SessionState.PENDING,
+        SessionState.STARTING,
+        SessionState.IDLE,
+        SessionState.BUSY,
+        SessionState.FINISHED,
+        SessionState.FAILED,
     }

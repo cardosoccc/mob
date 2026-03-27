@@ -7,7 +7,7 @@ from mob.cli.commands.domain import domain, domains
 from mob.cli.commands.user import user, users
 from mob.cli.commands.group import group, groups
 from mob.cli.commands.agent import agent, agents
-from mob.cli.commands.agent_run import agent_run, agent_runs
+from mob.cli.commands.session import session, sessions
 from mob.cli.commands.skill import skill, skills
 from mob.cli.commands.config_cmd import config, configs
 from mob.cli.commands.env_cmd import env, envs
@@ -33,8 +33,8 @@ cli.add_command(groups)
 cli.add_command(group)
 cli.add_command(agents)
 cli.add_command(agent)
-cli.add_command(agent_runs)
-cli.add_command(agent_run)
+cli.add_command(sessions)
+cli.add_command(session)
 cli.add_command(skills)
 cli.add_command(skill)
 cli.add_command(configs)

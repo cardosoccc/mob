@@ -11,7 +11,7 @@ tags:
 severity: high
 component: database/initialization
 symptoms:
-  - "sqlite3.OperationalError: no such column: agent_runs.name"
+  - "sqlite3.OperationalError: no such column: sessions.name"
   - CLI commands crash after adding new columns to SQLAlchemy models
   - Application works on fresh databases but fails on existing ones
 ---
@@ -20,11 +20,11 @@ symptoms:
 
 ## Problem
 
-After adding a new column to a SQLAlchemy model (e.g., `name` on `AgentRun`), running any command that queries that table on an **existing** SQLite database crashes:
+After adding a new column to a SQLAlchemy model (e.g., `name` on `Session`), running any command that queries that table on an **existing** SQLite database crashes:
 
 ```
-sqlite3.OperationalError: no such column: agent_runs.name
-[SQL: SELECT agent_runs.id, agent_runs.name, agent_runs.agent_id, ...]
+sqlite3.OperationalError: no such column: sessions.name
+[SQL: SELECT sessions.id, sessions.name, sessions.agent_id, ...]
 ```
 
 The error only occurs on databases created before the column was added. Fresh databases work fine.
@@ -42,9 +42,9 @@ SQLite makes this worse because it cannot:
 
 ## Investigation Steps
 
-1. `mob agent-runs` crashed immediately after the `name` column was added to `AgentRun` model
+1. `mob sessions` crashed immediately after the `name` column was added to `Session` model
 2. Fresh test databases (in-memory SQLite) passed all tests — the column existed because `create_all` created the table from scratch
-3. The local dev database (file-based SQLite) failed because the `agent_runs` table already existed without the `name` column
+3. The local dev database (file-based SQLite) failed because the `sessions` table already existed without the `name` column
 4. Confirmed `create_all` silently skips existing tables by checking SQLAlchemy source
 
 ## Solution
@@ -99,8 +99,8 @@ For explicit control with verbose output:
 
 ```bash
 $ mob migrate
-Added column: agent_runs.name (VARCHAR(255))
-Backfilled agent_runs.name for 6 rows
+Added column: sessions.name (VARCHAR(255))
+Backfilled sessions.name for 6 rows
 
 Migration complete. 2 action(s).
 ```
@@ -122,7 +122,7 @@ Also available as `make migrate`.
 
 ## Known Limitations
 
-- Backfill generates placeholder values (`agent_runs-a1b2c3d4`), not semantically meaningful data
+- Backfill generates placeholder values (`sessions-a1b2c3d4`), not semantically meaningful data
 - SQLite columns added this way remain nullable at the database level even if the model says NOT NULL
 - The approach doesn't handle column type changes, renames, or deletions — only additions
 
@@ -130,7 +130,7 @@ Also available as `make migrate`.
 
 - PR #11: `fix/sqlite-missing-columns` — initial fix
 - PR #12: `feat/make-migrate` — CLI command and Makefile target
-- PR #9: `feat/agent-run-commands` — the change that triggered this issue
+- PR #9: `feat/session-commands` — the change that triggered this issue
 - `docs/ideation/2026-03-23-open-ideation.md` — discusses Alembic as a future improvement
 - `src/mob/database.py` — implementation
 - `src/mob/cli/commands/migrate_cmd.py` — CLI command

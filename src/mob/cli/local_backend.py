@@ -8,7 +8,7 @@ from typing import Any
 from mob.database import get_session_factory, init_db
 from mob.schemas import (
     AgentResponse,
-    AgentRunResponse,
+    SessionResponse,
     DomainResponse,
     GroupResponse,
     OrganizationResponse,
@@ -17,7 +17,7 @@ from mob.schemas import (
     UserResponse,
 )
 from mob.services import ServiceError
-from mob.services import agent_runs as run_svc
+from mob.services import sessions as session_svc
 from mob.services import agents as agent_svc
 from mob.services import domains as domain_svc
 from mob.services import groups as group_svc
@@ -217,61 +217,61 @@ async def _route(session: Any, method: str, path: str, data: dict, params: dict)
             await agent_svc.delete_agent(session, agent_id)
             return None
 
-    # ── Agent Runs ─────────────────────────────────────────────
-    if path == "/agent-runs":
+    # ── Sessions ───────────────────────────────────────────────
+    if path == "/sessions":
         if method == "GET":
-            models = await run_svc.list_agent_runs(
+            models = await session_svc.list_sessions(
                 session,
                 agent_id=params.get("agent_id"),
                 state=params.get("state"),
             )
-            return _to_list(models, AgentRunResponse)
+            return _to_list(models, SessionResponse)
         if method == "POST":
-            model = await run_svc.create_agent_run(
+            model = await session_svc.create_session(
                 session,
                 agent_id=data["agent_id"],
                 task_id=data.get("task_id"),
                 name=data.get("name"),
             )
-            return _to_dict(model, AgentRunResponse)
+            return _to_dict(model, SessionResponse)
 
-    m = _match(r"^/agent-runs/([^/]+)/send$", path)
+    m = _match(r"^/sessions/([^/]+)/send$", path)
     if m:
-        run_id = m.group(1)
+        session_id = m.group(1)
         if method == "POST":
-            return await run_svc.send_message(
-                session, run_id, message=data["message"]
+            return await session_svc.send_message(
+                session, session_id, message=data["message"]
             )
 
-    m = _match(r"^/agent-runs/([^/]+)/logs$", path)
+    m = _match(r"^/sessions/([^/]+)/logs$", path)
     if m:
-        run_id = m.group(1)
+        session_id = m.group(1)
         if method == "GET":
-            status = await run_svc.get_agent_run_live_status(run_id)
+            status = await session_svc.get_session_live_status(session_id)
             return {"logs": status.get("logs", []), "status": status}
 
-    m = _match(r"^/agent-runs/([^/]+)/stop$", path)
+    m = _match(r"^/sessions/([^/]+)/stop$", path)
     if m:
-        run_id = m.group(1)
+        session_id = m.group(1)
         if method == "POST":
-            model = await run_svc.stop_agent_run(session, run_id)
-            return _to_dict(model, AgentRunResponse)
+            model = await session_svc.stop_session(session, session_id)
+            return _to_dict(model, SessionResponse)
 
-    m = _match(r"^/agent-runs/([^/]+)/state$", path)
+    m = _match(r"^/sessions/([^/]+)/state$", path)
     if m:
-        run_id = m.group(1)
+        session_id = m.group(1)
         if method == "PUT":
-            model = await run_svc.update_agent_run_state(
-                session, run_id, state=data["state"]
+            model = await session_svc.update_session_state(
+                session, session_id, state=data["state"]
             )
-            return _to_dict(model, AgentRunResponse)
+            return _to_dict(model, SessionResponse)
 
-    m = _match(r"^/agent-runs/([^/]+)$", path)
+    m = _match(r"^/sessions/([^/]+)$", path)
     if m:
-        run_id = m.group(1)
+        session_id = m.group(1)
         if method == "GET":
-            model = await run_svc.get_agent_run(session, run_id)
-            return _to_dict(model, AgentRunResponse)
+            model = await session_svc.get_session(session, session_id)
+            return _to_dict(model, SessionResponse)
 
     # ── Tasks ──────────────────────────────────────────────────
     if path == "/tasks":

@@ -1,4 +1,4 @@
-"""AgentRun service."""
+"""Session service."""
 
 import asyncio
 import logging
@@ -12,32 +12,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from mob.config import get_settings, is_local_mode
 from mob.models.agent import Agent
-from mob.models.agent_run import AgentRun, AgentRunState
+from mob.models.session import Session, SessionState
 from mob.services import ServiceError
 
 logger = logging.getLogger(__name__)
 
 # Valid state transitions enforced by the service layer
-VALID_TRANSITIONS: dict[AgentRunState, set[AgentRunState]] = {
-    AgentRunState.PENDING: {AgentRunState.STARTING, AgentRunState.FAILED},
-    AgentRunState.STARTING: {AgentRunState.IDLE, AgentRunState.FAILED},
-    AgentRunState.IDLE: {AgentRunState.BUSY, AgentRunState.FINISHED, AgentRunState.FAILED},
-    AgentRunState.BUSY: {AgentRunState.IDLE, AgentRunState.FINISHED, AgentRunState.FAILED},
-    AgentRunState.FINISHED: set(),
-    AgentRunState.FAILED: set(),
+VALID_TRANSITIONS: dict[SessionState, set[SessionState]] = {
+    SessionState.PENDING: {SessionState.STARTING, SessionState.FAILED},
+    SessionState.STARTING: {SessionState.IDLE, SessionState.FAILED},
+    SessionState.IDLE: {SessionState.BUSY, SessionState.FINISHED, SessionState.FAILED},
+    SessionState.BUSY: {SessionState.IDLE, SessionState.FINISHED, SessionState.FAILED},
+    SessionState.FINISHED: set(),
+    SessionState.FAILED: set(),
 }
 
 # CR status uses title-case; DB uses lowercase enum values
-CR_STATE_TO_DB_STATE: dict[str, AgentRunState] = {
-    "Pending": AgentRunState.PENDING,
-    "Starting": AgentRunState.STARTING,
-    "Idle": AgentRunState.IDLE,
-    "Busy": AgentRunState.BUSY,
-    "Finished": AgentRunState.FINISHED,
-    "Failed": AgentRunState.FAILED,
+CR_STATE_TO_DB_STATE: dict[str, SessionState] = {
+    "Pending": SessionState.PENDING,
+    "Starting": SessionState.STARTING,
+    "Idle": SessionState.IDLE,
+    "Busy": SessionState.BUSY,
+    "Finished": SessionState.FINISHED,
+    "Failed": SessionState.FAILED,
 }
 
-TERMINAL_STATES = {AgentRunState.FINISHED, AgentRunState.FAILED}
+TERMINAL_STATES = {SessionState.FINISHED, SessionState.FAILED}
 
 # Cached K8s API clients (initialized on first use)
 _k8s_custom_api = None
@@ -78,7 +78,7 @@ def _try_get_k8s_custom_api():
 
 
 def _list_cr_statuses_sync() -> dict[str, dict] | None:
-    """Batch-list all AgentRun CR statuses. Returns {cr_name: status_dict}, or None if K8s unavailable."""
+    """Batch-list all Session CR statuses. Returns {cr_name: status_dict}, or None if K8s unavailable."""
     custom_api = _try_get_k8s_custom_api()
     if not custom_api:
         return None
@@ -87,7 +87,7 @@ def _list_cr_statuses_sync() -> dict[str, dict] | None:
             group="mob.io",
             version="v1",
             namespace=get_settings().kubernetes_namespace,
-            plural="agentruns",
+            plural="sessions",
         )
         return {
             item["metadata"]["name"]: item.get("status", {})
@@ -97,75 +97,75 @@ def _list_cr_statuses_sync() -> dict[str, dict] | None:
         return None
 
 
-def _enrich_runs_with_live_state(
-    runs: list[AgentRun], cr_statuses: dict[str, dict] | None
-) -> list[AgentRun]:
-    """Merge live CR state into AgentRun objects for non-terminal runs.
+def _enrich_sessions_with_live_state(
+    sessions: list[Session], cr_statuses: dict[str, dict] | None
+) -> list[Session]:
+    """Merge live CR state into Session objects for non-terminal sessions.
 
-    If cr_statuses is None (K8s unavailable), returns runs unchanged (graceful degradation).
+    If cr_statuses is None (K8s unavailable), returns sessions unchanged (graceful degradation).
     """
     if cr_statuses is None:
-        return runs
-    for run in runs:
-        if run.state in TERMINAL_STATES:
+        return sessions
+    for sess in sessions:
+        if sess.state in TERMINAL_STATES:
             continue
-        cr_name = f"ar-{str(run.id)[:8]}"
+        cr_name = f"s-{str(sess.id)[:8]}"
         status = cr_statuses.get(cr_name)
         if status:
             cr_state = status.get("state", "")
             db_state = CR_STATE_TO_DB_STATE.get(cr_state)
             if db_state:
-                run.state = db_state
+                sess.state = db_state
             pod_name = status.get("podName")
             if pod_name:
-                run.pod_name = pod_name
+                sess.pod_name = pod_name
             error_msg = status.get("errorMessage")
             if error_msg:
-                run.error_message = error_msg
+                sess.error_message = error_msg
         else:
-            # CR not found for a non-terminal run — mark as failed
-            run.state = AgentRunState.FAILED
-            run.error_message = "CR not found"
-    return runs
+            # CR not found for a non-terminal session — mark as failed
+            sess.state = SessionState.FAILED
+            sess.error_message = "CR not found"
+    return sessions
 
 
-async def list_agent_runs(
+async def list_sessions(
     session: AsyncSession,
     agent_id: str | None = None,
     state: str | None = None,
-) -> list[AgentRun]:
+) -> list[Session]:
     # Validate state filter early
-    state_filter: AgentRunState | None = None
+    state_filter: SessionState | None = None
     if state:
         try:
-            state_filter = AgentRunState(state)
+            state_filter = SessionState(state)
         except ValueError:
             raise ServiceError(f"Invalid state filter: {state}", 400)
 
-    query = select(AgentRun).order_by(AgentRun.created_at.desc())
+    query = select(Session).order_by(Session.created_at.desc())
     if agent_id:
-        query = query.where(AgentRun.agent_id == agent_id)
+        query = query.where(Session.agent_id == agent_id)
 
     result = await session.execute(query)
-    runs = list(result.scalars().all())
+    sessions = list(result.scalars().all())
 
     # Enrich with live K8s state
     cr_statuses = await asyncio.to_thread(_list_cr_statuses_sync)
-    _enrich_runs_with_live_state(runs, cr_statuses)
+    _enrich_sessions_with_live_state(sessions, cr_statuses)
 
     # Apply state filter post-enrichment
     if state_filter:
-        runs = [r for r in runs if r.state == state_filter]
+        sessions = [s for s in sessions if s.state == state_filter]
 
-    return runs
+    return sessions
 
 
-async def create_agent_run(
+async def create_session(
     session: AsyncSession,
     agent_id: str,
     task_id: str | None = None,
     name: str | None = None,
-) -> AgentRun:
+) -> Session:
     agent = await session.get(Agent, agent_id)
     if not agent:
         raise ServiceError("Agent not found", 404)
@@ -174,30 +174,30 @@ async def create_agent_run(
         suffix = secrets.token_hex(4)  # 8 hex chars
         name = f"{agent.name}-{suffix}"
 
-    run = AgentRun(
+    sess = Session(
         agent_id=agent_id,
         name=name,
-        state=AgentRunState.PENDING,
+        state=SessionState.PENDING,
         task_id=task_id,
     )
-    session.add(run)
+    session.add(sess)
     try:
         await session.flush()
         await session.commit()
     except IntegrityError:
         await session.rollback()
-        raise ServiceError(f"Run name '{name}' already exists", 409)
-    await session.refresh(run)
+        raise ServiceError(f"Session name '{name}' already exists", 409)
+    await session.refresh(sess)
 
-    # Try to create an AgentRun CR in Kubernetes
+    # Try to create a Session CR in Kubernetes
     custom_api = _try_get_k8s_custom_api()
     if custom_api:
         try:
             cr = {
                 "apiVersion": "mob.io/v1",
-                "kind": "AgentRun",
+                "kind": "Session",
                 "metadata": {
-                    "name": f"ar-{str(run.id)[:8]}",
+                    "name": f"s-{str(sess.id)[:8]}",
                     "namespace": get_settings().kubernetes_namespace,
                 },
                 "spec": {
@@ -213,54 +213,54 @@ async def create_agent_run(
                 group="mob.io",
                 version="v1",
                 namespace=get_settings().kubernetes_namespace,
-                plural="agentruns",
+                plural="sessions",
                 body=cr,
             )
-            logger.info(f"Created AgentRun CR ar-{str(run.id)[:8]}")
+            logger.info(f"Created Session CR s-{str(sess.id)[:8]}")
         except Exception as e:
-            logger.warning(f"Failed to create AgentRun CR: {e}")
-            run.error_message = f"CR creation failed: {e}"
+            logger.warning(f"Failed to create Session CR: {e}")
+            sess.error_message = f"CR creation failed: {e}"
             await session.commit()
-            await session.refresh(run)
+            await session.refresh(sess)
 
-    return run
+    return sess
 
 
-async def get_agent_run(session: AsyncSession, run_id: str) -> AgentRun:
-    run = await session.get(AgentRun, run_id)
-    if not run:
-        raise ServiceError("Agent run not found", 404)
+async def get_session(session: AsyncSession, session_id: str) -> Session:
+    sess = await session.get(Session, session_id)
+    if not sess:
+        raise ServiceError("Session not found", 404)
 
-    # Enrich non-terminal runs with live K8s state
-    if run.state not in TERMINAL_STATES:
+    # Enrich non-terminal sessions with live K8s state
+    if sess.state not in TERMINAL_STATES:
         result = await asyncio.to_thread(
-            _get_single_cr_status_sync, str(run.id)
+            _get_single_cr_status_sync, str(sess.id)
         )
         if result is None:
             pass  # K8s unavailable — degrade gracefully, keep DB state
         elif result is _CR_NOT_FOUND:
-            run.state = AgentRunState.FAILED
-            run.error_message = "CR not found"
+            sess.state = SessionState.FAILED
+            sess.error_message = "CR not found"
         elif result:
             cr_state = result.get("state", "")
             db_state = CR_STATE_TO_DB_STATE.get(cr_state)
             if db_state:
-                run.state = db_state
+                sess.state = db_state
             pod_name = result.get("podName")
             if pod_name:
-                run.pod_name = pod_name
+                sess.pod_name = pod_name
             error_msg = result.get("errorMessage")
             if error_msg:
-                run.error_message = error_msg
+                sess.error_message = error_msg
 
-    return run
+    return sess
 
 
 _CR_NOT_FOUND = object()
 
 
-def _get_single_cr_status_sync(run_id: str) -> dict | object | None:
-    """Read live status for a single AgentRun CR.
+def _get_single_cr_status_sync(session_id: str) -> dict | object | None:
+    """Read live status for a single Session CR.
 
     Returns:
         dict: CR status (may be empty if status not yet set)
@@ -275,16 +275,16 @@ def _get_single_cr_status_sync(run_id: str) -> dict | object | None:
             group="mob.io",
             version="v1",
             namespace=get_settings().kubernetes_namespace,
-            plural="agentruns",
-            name=f"ar-{run_id[:8]}",
+            plural="sessions",
+            name=f"s-{session_id[:8]}",
         )
         return cr.get("status", {})
     except Exception:
         return _CR_NOT_FOUND
 
 
-def get_agent_run_live_status_sync(run_id: str) -> dict:
-    """Read live status from the AgentRun CR (synchronous, not the DB)."""
+def get_session_live_status_sync(session_id: str) -> dict:
+    """Read live status from the Session CR (synchronous, not the DB)."""
     custom_api = _try_get_k8s_custom_api()
     if not custom_api:
         return {}
@@ -293,27 +293,27 @@ def get_agent_run_live_status_sync(run_id: str) -> dict:
             group="mob.io",
             version="v1",
             namespace=get_settings().kubernetes_namespace,
-            plural="agentruns",
-            name=f"ar-{run_id[:8]}",
+            plural="sessions",
+            name=f"s-{session_id[:8]}",
         )
         return cr.get("status", {})
     except Exception:
         return {}
 
 
-async def get_agent_run_live_status(run_id: str) -> dict:
-    """Read live status from the AgentRun CR (not the DB)."""
-    return await asyncio.to_thread(get_agent_run_live_status_sync, run_id)
+async def get_session_live_status(session_id: str) -> dict:
+    """Read live status from the Session CR (not the DB)."""
+    return await asyncio.to_thread(get_session_live_status_sync, session_id)
 
 
-async def stop_agent_run(session: AsyncSession, run_id: str) -> AgentRun:
-    run = await session.get(AgentRun, run_id)
-    if not run:
-        raise ServiceError("Agent run not found", 404)
+async def stop_session(session: AsyncSession, session_id: str) -> Session:
+    sess = await session.get(Session, session_id)
+    if not sess:
+        raise ServiceError("Session not found", 404)
 
-    if run.state in (AgentRunState.FINISHED, AgentRunState.FAILED):
+    if sess.state in (SessionState.FINISHED, SessionState.FAILED):
         raise ServiceError(
-            f"Agent run is already in terminal state: {run.state}", 400
+            f"Session is already in terminal state: {sess.state}", 400
         )
 
     # Delete the CR — operator's finalizer will clean up the pod
@@ -324,43 +324,43 @@ async def stop_agent_run(session: AsyncSession, run_id: str) -> AgentRun:
                 group="mob.io",
                 version="v1",
                 namespace=get_settings().kubernetes_namespace,
-                plural="agentruns",
-                name=f"ar-{str(run.id)[:8]}",
+                plural="sessions",
+                name=f"s-{str(sess.id)[:8]}",
             )
-            logger.info(f"Deleted AgentRun CR ar-{str(run.id)[:8]}")
+            logger.info(f"Deleted Session CR s-{str(sess.id)[:8]}")
         except Exception as e:
-            logger.warning(f"Failed to delete AgentRun CR: {e}")
+            logger.warning(f"Failed to delete Session CR: {e}")
 
-    run.state = AgentRunState.FAILED
-    run.error_message = "Stopped by user"
+    sess.state = SessionState.FAILED
+    sess.error_message = "Stopped by user"
     await session.commit()
-    await session.refresh(run)
-    return run
+    await session.refresh(sess)
+    return sess
 
 
-async def update_agent_run_state(
-    session: AsyncSession, run_id: str, state: str
-) -> AgentRun:
-    run = await session.get(AgentRun, run_id)
-    if not run:
-        raise ServiceError("Agent run not found", 404)
+async def update_session_state(
+    session: AsyncSession, session_id: str, state: str
+) -> Session:
+    sess = await session.get(Session, session_id)
+    if not sess:
+        raise ServiceError("Session not found", 404)
 
     try:
-        new_state = AgentRunState(state)
+        new_state = SessionState(state)
     except ValueError:
         raise ServiceError(f"Invalid state: {state}", 400)
 
     # Enforce state transition guards
-    allowed = VALID_TRANSITIONS.get(run.state, set())
+    allowed = VALID_TRANSITIONS.get(sess.state, set())
     if new_state not in allowed:
         raise ServiceError(
-            f"Invalid state transition: {run.state.value} -> {new_state.value}", 409
+            f"Invalid state transition: {sess.state.value} -> {new_state.value}", 409
         )
 
-    run.state = new_state
+    sess.state = new_state
     await session.commit()
-    await session.refresh(run)
-    return run
+    await session.refresh(sess)
+    return sess
 
 
 def _try_get_k8s_core_api():
@@ -468,14 +468,14 @@ async def _send_via_port_forward(
 
 
 async def send_message(
-    session: AsyncSession, run_id: str, message: str
+    session: AsyncSession, session_id: str, message: str
 ) -> dict:
-    run = await session.get(AgentRun, run_id)
-    if not run:
-        raise ServiceError("Agent run not found", 404)
+    sess = await session.get(Session, session_id)
+    if not sess:
+        raise ServiceError("Session not found", 404)
 
     # Check live CR status to verify agent is running
-    live_status = await get_agent_run_live_status(str(run.id))
+    live_status = await get_session_live_status(str(sess.id))
     cr_state = live_status.get("state", "")
     if cr_state not in ("Idle", "Busy"):
         raise ServiceError(

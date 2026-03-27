@@ -7,12 +7,12 @@ use kube::runtime::controller::Action;
 use kube::runtime::finalizer::{finalizer, Event};
 use kube::{Client, ResourceExt};
 
-use crate::crd::{AgentRun, AgentRunStatus};
+use crate::crd::{Session, SessionStatus};
 use crate::error::{Error, Result};
 use crate::resources::pod::{build_agent_pod, derive_state_from_pod};
 
-/// Finalizer name for the AgentRun CR.
-pub const FINALIZER: &str = "mob.io/agent-run-cleanup";
+/// Finalizer name for the Session CR.
+pub const FINALIZER: &str = "mob.io/session-cleanup";
 
 /// Shared context for the controller.
 pub struct Context {
@@ -20,17 +20,17 @@ pub struct Context {
 }
 
 /// Top-level reconcile function — delegates to finalizer handler.
-pub async fn reconcile(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Action> {
-    let ns = ar.namespace().unwrap_or_default();
-    let name = ar.name_any();
-    let run_api: Api<AgentRun> = Api::namespaced(ctx.client.clone(), &ns);
+pub async fn reconcile(sess: Arc<Session>, ctx: Arc<Context>) -> Result<Action> {
+    let ns = sess.namespace().unwrap_or_default();
+    let name = sess.name_any();
+    let session_api: Api<Session> = Api::namespaced(ctx.client.clone(), &ns);
 
-    tracing::info!(name = %name, ns = %ns, "reconciling AgentRun");
+    tracing::info!(name = %name, ns = %ns, "reconciling Session");
 
-    finalizer(&run_api, FINALIZER, ar, |event| async {
+    finalizer(&session_api, FINALIZER, sess, |event| async {
         match event {
-            Event::Apply(ar) => reconcile_apply(ar, ctx.clone()).await,
-            Event::Cleanup(ar) => reconcile_cleanup(ar, ctx.clone()).await,
+            Event::Apply(sess) => reconcile_apply(sess, ctx.clone()).await,
+            Event::Cleanup(sess) => reconcile_cleanup(sess, ctx.clone()).await,
         }
     })
     .await
@@ -38,19 +38,19 @@ pub async fn reconcile(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Action> {
 }
 
 /// Error policy: requeue after 60 seconds on failure.
-pub fn error_policy(_ar: Arc<AgentRun>, error: &Error, _ctx: Arc<Context>) -> Action {
+pub fn error_policy(_sess: Arc<Session>, error: &Error, _ctx: Arc<Context>) -> Action {
     tracing::error!(%error, "reconcile failed, requeuing");
     Action::requeue(Duration::from_secs(60))
 }
 
 /// Apply reconciliation — create pods, sync state.
-async fn reconcile_apply(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Action> {
-    let ns = ar.namespace().unwrap_or_default();
-    let name = ar.name_any();
-    let run_api: Api<AgentRun> = Api::namespaced(ctx.client.clone(), &ns);
+async fn reconcile_apply(sess: Arc<Session>, ctx: Arc<Context>) -> Result<Action> {
+    let ns = sess.namespace().unwrap_or_default();
+    let name = sess.name_any();
+    let session_api: Api<Session> = Api::namespaced(ctx.client.clone(), &ns);
     let pod_api: Api<Pod> = Api::namespaced(ctx.client.clone(), &ns);
 
-    let state = ar
+    let state = sess
         .status
         .as_ref()
         .map(|s| s.state.as_str())
@@ -61,7 +61,7 @@ async fn reconcile_apply(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Action>
     match state {
         "Pending" => {
             // Create the agent pod using server-side apply (idempotent)
-            let pod = build_agent_pod(&ar)?;
+            let pod = build_agent_pod(&sess)?;
             pod_api
                 .patch(
                     &pod_name,
@@ -73,7 +73,7 @@ async fn reconcile_apply(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Action>
 
             tracing::info!(name = %name, pod = %pod_name, "created agent pod");
 
-            update_status(&run_api, &name, "Starting", Some(&pod_name), None).await?;
+            update_status(&session_api, &name, "Starting", Some(&pod_name), None).await?;
         }
 
         "Starting" => {
@@ -82,13 +82,13 @@ async fn reconcile_apply(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Action>
                     let derived = derive_state_from_pod(&pod);
                     if derived != "Starting" {
                         tracing::info!(name = %name, state = %derived, "pod ready, transitioning");
-                        update_status(&run_api, &name, derived, Some(&pod_name), None).await?;
+                        update_status(&session_api, &name, derived, Some(&pod_name), None).await?;
                     }
                 }
                 None => {
                     tracing::warn!(name = %name, "pod not found during Starting");
                     update_status(
-                        &run_api,
+                        &session_api,
                         &name,
                         "Failed",
                         None,
@@ -105,13 +105,13 @@ async fn reconcile_apply(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Action>
                     let derived = derive_state_from_pod(&pod);
                     if derived != state {
                         tracing::info!(name = %name, from = %state, to = %derived, "state transition");
-                        update_status(&run_api, &name, derived, Some(&pod_name), None).await?;
+                        update_status(&session_api, &name, derived, Some(&pod_name), None).await?;
                     }
                 }
                 None => {
                     tracing::warn!(name = %name, "pod disappeared");
                     update_status(
-                        &run_api,
+                        &session_api,
                         &name,
                         "Failed",
                         None,
@@ -125,7 +125,7 @@ async fn reconcile_apply(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Action>
         "Finished" | "Failed" => {
             // Terminal state — clean up pod if it still exists
             if let Ok(Some(_)) = pod_api.get_opt(&pod_name).await {
-                tracing::info!(name = %name, pod = %pod_name, "cleaning up pod for terminal run");
+                tracing::info!(name = %name, pod = %pod_name, "cleaning up pod for terminal session");
                 let _ = pod_api
                     .delete(&pod_name, &Default::default())
                     .await;
@@ -138,18 +138,18 @@ async fn reconcile_apply(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Action>
         }
     }
 
-    // Requeue every 15 seconds for active runs
+    // Requeue every 15 seconds for active sessions
     Ok(Action::requeue(Duration::from_secs(15)))
 }
 
 /// Cleanup on CR deletion — delete the pod.
-async fn reconcile_cleanup(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Action> {
-    let ns = ar.namespace().unwrap_or_default();
-    let name = ar.name_any();
+async fn reconcile_cleanup(sess: Arc<Session>, ctx: Arc<Context>) -> Result<Action> {
+    let ns = sess.namespace().unwrap_or_default();
+    let name = sess.name_any();
     let pod_api: Api<Pod> = Api::namespaced(ctx.client.clone(), &ns);
     let pod_name = format!("mob-agent-{name}");
 
-    tracing::info!(name = %name, "cleaning up AgentRun");
+    tracing::info!(name = %name, "cleaning up Session");
 
     if let Ok(Some(_)) = pod_api.get_opt(&pod_name).await {
         tracing::info!(pod = %pod_name, "deleting agent pod");
@@ -159,9 +159,9 @@ async fn reconcile_cleanup(ar: Arc<AgentRun>, ctx: Arc<Context>) -> Result<Actio
     Ok(Action::await_change())
 }
 
-/// Update the AgentRun CR status subresource.
+/// Update the Session CR status subresource.
 async fn update_status(
-    api: &Api<AgentRun>,
+    api: &Api<Session>,
     name: &str,
     state: &str,
     pod_name: Option<&str>,
@@ -171,8 +171,8 @@ async fn update_status(
 
     let status = serde_json::json!({
         "apiVersion": "mob.io/v1",
-        "kind": "AgentRun",
-        "status": AgentRunStatus {
+        "kind": "Session",
+        "status": SessionStatus {
             state: state.to_string(),
             pod_name: pod_name.map(|s| s.to_string()),
             error_message: error_message.map(|s| s.to_string()),

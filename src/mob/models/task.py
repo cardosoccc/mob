@@ -17,8 +17,8 @@ class Task(Base, TimestampMixin):
     )
 
     agent: Mapped["Agent"] = relationship("Agent")  # noqa: F821
-    agent_run: Mapped["AgentRun | None"] = relationship(  # noqa: F821
-        "AgentRun", back_populates="task", uselist=False
+    session: Mapped["Session | None"] = relationship(  # noqa: F821
+        "Session", back_populates="task", uselist=False
     )
 
     def __repr__(self) -> str:

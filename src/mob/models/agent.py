@@ -19,8 +19,8 @@ class Agent(Base, TimestampMixin):
     )
 
     domain: Mapped["Domain"] = relationship("Domain", back_populates="agents")  # noqa: F821
-    runs: Mapped[list["AgentRun"]] = relationship(  # noqa: F821
-        "AgentRun", back_populates="agent", cascade="all, delete-orphan"
+    sessions: Mapped[list["Session"]] = relationship(  # noqa: F821
+        "Session", back_populates="agent", cascade="all, delete-orphan"
     )
     skills: Mapped[list["AgentSkill"]] = relationship(
         "AgentSkill", back_populates="agent", cascade="all, delete-orphan"

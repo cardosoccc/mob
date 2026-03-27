@@ -10,7 +10,7 @@ use kube::runtime::Controller;
 use kube::{Client, CustomResourceExt};
 
 use mob_operator::controller::{error_policy, reconcile, Context};
-use mob_operator::crd::AgentRun;
+use mob_operator::crd::Session;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -25,25 +25,25 @@ async fn main() -> anyhow::Result<()> {
 
     let client = Client::try_default().await?;
 
-    // Register the AgentRun CRD (idempotent via server-side apply)
+    // Register the Session CRD (idempotent via server-side apply)
     let crds: Api<CustomResourceDefinition> = Api::all(client.clone());
     crds.patch(
-        "agentruns.mob.io",
+        "sessions.mob.io",
         &PatchParams::apply("mob-operator").force(),
-        &Patch::Apply(AgentRun::crd()),
+        &Patch::Apply(Session::crd()),
     )
     .await?;
-    tracing::info!("AgentRun CRD registered");
+    tracing::info!("Session CRD registered");
 
     // Set up the controller
-    let agent_runs: Api<AgentRun> = Api::all(client.clone());
+    let sessions: Api<Session> = Api::all(client.clone());
     let pods: Api<Pod> = Api::all(client.clone());
 
     let ctx = Arc::new(Context {
         client: client.clone(),
     });
 
-    Controller::new(agent_runs, watcher::Config::default())
+    Controller::new(sessions, watcher::Config::default())
         .owns(pods, watcher::Config::default())
         .with_config(Config::default().concurrency(2))
         .shutdown_on_signal()
