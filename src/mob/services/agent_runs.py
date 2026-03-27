@@ -27,6 +27,18 @@ VALID_TRANSITIONS: dict[AgentRunState, set[AgentRunState]] = {
     AgentRunState.FAILED: set(),
 }
 
+# CR status uses title-case; DB uses lowercase enum values
+CR_STATE_TO_DB_STATE: dict[str, AgentRunState] = {
+    "Pending": AgentRunState.PENDING,
+    "Starting": AgentRunState.STARTING,
+    "Idle": AgentRunState.IDLE,
+    "Busy": AgentRunState.BUSY,
+    "Finished": AgentRunState.FINISHED,
+    "Failed": AgentRunState.FAILED,
+}
+
+TERMINAL_STATES = {AgentRunState.FINISHED, AgentRunState.FAILED}
+
 # Cached K8s API clients (initialized on first use)
 _k8s_custom_api = None
 _k8s_core_api = None
@@ -65,21 +77,87 @@ def _try_get_k8s_custom_api():
         return None
 
 
+def _list_cr_statuses_sync() -> dict[str, dict] | None:
+    """Batch-list all AgentRun CR statuses. Returns {cr_name: status_dict}, or None if K8s unavailable."""
+    custom_api = _try_get_k8s_custom_api()
+    if not custom_api:
+        return None
+    try:
+        result = custom_api.list_namespaced_custom_object(
+            group="mob.io",
+            version="v1",
+            namespace=get_settings().kubernetes_namespace,
+            plural="agentruns",
+        )
+        return {
+            item["metadata"]["name"]: item.get("status", {})
+            for item in result.get("items", [])
+        }
+    except Exception:
+        return None
+
+
+def _enrich_runs_with_live_state(
+    runs: list[AgentRun], cr_statuses: dict[str, dict] | None
+) -> list[AgentRun]:
+    """Merge live CR state into AgentRun objects for non-terminal runs.
+
+    If cr_statuses is None (K8s unavailable), returns runs unchanged (graceful degradation).
+    """
+    if cr_statuses is None:
+        return runs
+    for run in runs:
+        if run.state in TERMINAL_STATES:
+            continue
+        cr_name = f"ar-{str(run.id)[:8]}"
+        status = cr_statuses.get(cr_name)
+        if status:
+            cr_state = status.get("state", "")
+            db_state = CR_STATE_TO_DB_STATE.get(cr_state)
+            if db_state:
+                run.state = db_state
+            pod_name = status.get("podName")
+            if pod_name:
+                run.pod_name = pod_name
+            error_msg = status.get("errorMessage")
+            if error_msg:
+                run.error_message = error_msg
+        else:
+            # CR not found for a non-terminal run — mark as failed
+            run.state = AgentRunState.FAILED
+            run.error_message = "CR not found"
+    return runs
+
+
 async def list_agent_runs(
     session: AsyncSession,
     agent_id: str | None = None,
     state: str | None = None,
 ) -> list[AgentRun]:
+    # Validate state filter early
+    state_filter: AgentRunState | None = None
+    if state:
+        try:
+            state_filter = AgentRunState(state)
+        except ValueError:
+            raise ServiceError(f"Invalid state filter: {state}", 400)
+
     query = select(AgentRun).order_by(AgentRun.created_at.desc())
     if agent_id:
         query = query.where(AgentRun.agent_id == agent_id)
-    if state:
-        try:
-            query = query.where(AgentRun.state == AgentRunState(state))
-        except ValueError:
-            raise ServiceError(f"Invalid state filter: {state}", 400)
+
     result = await session.execute(query)
-    return list(result.scalars().all())
+    runs = list(result.scalars().all())
+
+    # Enrich with live K8s state
+    cr_statuses = await asyncio.to_thread(_list_cr_statuses_sync)
+    _enrich_runs_with_live_state(runs, cr_statuses)
+
+    # Apply state filter post-enrichment
+    if state_filter:
+        runs = [r for r in runs if r.state == state_filter]
+
+    return runs
 
 
 async def create_agent_run(
@@ -152,11 +230,61 @@ async def get_agent_run(session: AsyncSession, run_id: str) -> AgentRun:
     run = await session.get(AgentRun, run_id)
     if not run:
         raise ServiceError("Agent run not found", 404)
+
+    # Enrich non-terminal runs with live K8s state
+    if run.state not in TERMINAL_STATES:
+        result = await asyncio.to_thread(
+            _get_single_cr_status_sync, str(run.id)
+        )
+        if result is None:
+            pass  # K8s unavailable — degrade gracefully, keep DB state
+        elif result is _CR_NOT_FOUND:
+            run.state = AgentRunState.FAILED
+            run.error_message = "CR not found"
+        elif result:
+            cr_state = result.get("state", "")
+            db_state = CR_STATE_TO_DB_STATE.get(cr_state)
+            if db_state:
+                run.state = db_state
+            pod_name = result.get("podName")
+            if pod_name:
+                run.pod_name = pod_name
+            error_msg = result.get("errorMessage")
+            if error_msg:
+                run.error_message = error_msg
+
     return run
 
 
-async def get_agent_run_live_status(run_id: str) -> dict:
-    """Read live status from the AgentRun CR (not the DB)."""
+_CR_NOT_FOUND = object()
+
+
+def _get_single_cr_status_sync(run_id: str) -> dict | object | None:
+    """Read live status for a single AgentRun CR.
+
+    Returns:
+        dict: CR status (may be empty if status not yet set)
+        _CR_NOT_FOUND: K8s available but CR doesn't exist
+        None: K8s unavailable
+    """
+    custom_api = _try_get_k8s_custom_api()
+    if not custom_api:
+        return None
+    try:
+        cr = custom_api.get_namespaced_custom_object(
+            group="mob.io",
+            version="v1",
+            namespace=get_settings().kubernetes_namespace,
+            plural="agentruns",
+            name=f"ar-{run_id[:8]}",
+        )
+        return cr.get("status", {})
+    except Exception:
+        return _CR_NOT_FOUND
+
+
+def get_agent_run_live_status_sync(run_id: str) -> dict:
+    """Read live status from the AgentRun CR (synchronous, not the DB)."""
     custom_api = _try_get_k8s_custom_api()
     if not custom_api:
         return {}
@@ -171,6 +299,11 @@ async def get_agent_run_live_status(run_id: str) -> dict:
         return cr.get("status", {})
     except Exception:
         return {}
+
+
+async def get_agent_run_live_status(run_id: str) -> dict:
+    """Read live status from the AgentRun CR (not the DB)."""
+    return await asyncio.to_thread(get_agent_run_live_status_sync, run_id)
 
 
 async def stop_agent_run(session: AsyncSession, run_id: str) -> AgentRun:
