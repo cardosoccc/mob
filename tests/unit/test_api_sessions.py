@@ -142,6 +142,15 @@ async def test_create_session_with_task(client, agent):
     assert resp.json()["task_id"] == task_id
 
 
+@pytest.mark.asyncio
+async def test_create_session_with_env_overrides(client, agent):
+    resp = await client.post("/api/v1/sessions", json={
+        "agent_id": agent["id"],
+        "env_overrides": {"MY_KEY": "my_value"},
+    })
+    assert resp.status_code == 201
+
+
 # ─── State enrichment tests ───────────────────────────────────
 
 

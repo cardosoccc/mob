@@ -102,3 +102,65 @@ async def test_create_agent_with_skills(client, domain):
         "skill_ids": [skill_id],
     })
     assert resp.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_create_agent_with_env_defaults(client, domain):
+    resp = await client.post("/api/v1/agents", json={
+        "name": "env-agent",
+        "agent_template": "test:latest",
+        "domain_id": domain["id"],
+        "env_defaults": {"LLM_TIMEOUT": "120", "CUSTOM_VAR": "hello"},
+        "custom_config": {"temperature": "0.7", "max_tokens": "4096"},
+    })
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["env_defaults"] == {"LLM_TIMEOUT": "120", "CUSTOM_VAR": "hello"}
+    assert data["custom_config"] == {"temperature": "0.7", "max_tokens": "4096"}
+
+
+@pytest.mark.asyncio
+async def test_create_agent_without_env_defaults(client, domain):
+    resp = await client.post("/api/v1/agents", json={
+        "name": "plain-agent",
+        "agent_template": "test:latest",
+        "domain_id": domain["id"],
+    })
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["env_defaults"] is None
+    assert data["custom_config"] is None
+
+
+@pytest.mark.asyncio
+async def test_update_agent_env_defaults(client, domain):
+    create_resp = await client.post("/api/v1/agents", json={
+        "name": "upd-env-agent",
+        "agent_template": "test:latest",
+        "domain_id": domain["id"],
+    })
+    agent_id = create_resp.json()["id"]
+
+    resp = await client.put(f"/api/v1/agents/{agent_id}", json={
+        "env_defaults": {"NEW_VAR": "new-value"},
+        "custom_config": {"setting": "updated"},
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["env_defaults"] == {"NEW_VAR": "new-value"}
+    assert data["custom_config"] == {"setting": "updated"}
+
+
+@pytest.mark.asyncio
+async def test_get_agent_returns_env_fields(client, domain):
+    create_resp = await client.post("/api/v1/agents", json={
+        "name": "get-env-agent",
+        "agent_template": "test:latest",
+        "domain_id": domain["id"],
+        "env_defaults": {"KEY": "val"},
+    })
+    agent_id = create_resp.json()["id"]
+
+    resp = await client.get(f"/api/v1/agents/{agent_id}")
+    assert resp.status_code == 200
+    assert resp.json()["env_defaults"] == {"KEY": "val"}

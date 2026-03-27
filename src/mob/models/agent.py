@@ -14,6 +14,8 @@ class Agent(Base, TimestampMixin):
     system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     agent_template: Mapped[str] = mapped_column(String(500), nullable=False)
     model_endpoint: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    env_defaults: Mapped[str | None] = mapped_column(Text, nullable=True)
+    custom_config: Mapped[str | None] = mapped_column(Text, nullable=True)
     domain_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("domains.id", ondelete="CASCADE"), nullable=False
     )

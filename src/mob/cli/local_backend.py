@@ -193,6 +193,8 @@ async def _route(session: Any, method: str, path: str, data: dict, params: dict)
                 system_prompt=data.get("system_prompt"),
                 model_endpoint=data.get("model_endpoint"),
                 skill_ids=data.get("skill_ids", []),
+                env_defaults=data.get("env_defaults"),
+                custom_config=data.get("custom_config"),
             )
             return _to_dict(model, AgentResponse)
 
@@ -211,6 +213,8 @@ async def _route(session: Any, method: str, path: str, data: dict, params: dict)
                 agent_template=data.get("agent_template"),
                 model_endpoint=data.get("model_endpoint"),
                 skill_ids=data.get("skill_ids"),
+                env_defaults=data.get("env_defaults"),
+                custom_config=data.get("custom_config"),
             )
             return _to_dict(model, AgentResponse)
         if method == "DELETE":
@@ -232,6 +236,7 @@ async def _route(session: Any, method: str, path: str, data: dict, params: dict)
                 agent_id=data["agent_id"],
                 task_id=data.get("task_id"),
                 name=data.get("name"),
+                env_overrides=data.get("env_overrides"),
             )
             return _to_dict(model, SessionResponse)
 

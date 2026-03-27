@@ -2,7 +2,9 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+import json
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # ─── Organization ───────────────────────────────────────────────
@@ -106,6 +108,8 @@ class AgentCreate(BaseModel):
     model_endpoint: str | None = None
     domain_id: str
     skill_ids: list[str] = Field(default_factory=list)
+    env_defaults: dict[str, str] | None = None
+    custom_config: dict[str, str] | None = None
 
 
 class AgentUpdate(BaseModel):
@@ -114,6 +118,8 @@ class AgentUpdate(BaseModel):
     agent_template: str | None = Field(None, min_length=1, max_length=500)
     model_endpoint: str | None = None
     skill_ids: list[str] | None = None
+    env_defaults: dict[str, str] | None = None
+    custom_config: dict[str, str] | None = None
 
 
 class AgentResponse(BaseModel):
@@ -123,10 +129,19 @@ class AgentResponse(BaseModel):
     agent_template: str
     model_endpoint: str | None
     domain_id: str
+    env_defaults: dict[str, str] | None = None
+    custom_config: dict[str, str] | None = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("env_defaults", "custom_config", mode="before")
+    @classmethod
+    def _parse_json_str(cls, v):
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
 
 
 # ─── Session ───────────────────────────────────────────────────
@@ -135,6 +150,7 @@ class SessionCreate(BaseModel):
     agent_id: str
     task_id: str | None = None
     name: str | None = Field(None, min_length=1, max_length=255, pattern=r"^[a-z0-9][a-z0-9\-]*[a-z0-9]$")
+    env_overrides: dict[str, str] | None = None
 
 
 class SessionResponse(BaseModel):

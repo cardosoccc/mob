@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -40,6 +42,10 @@ pub struct SessionSpec {
     /// Optional task ID to associate with this session.
     #[serde(rename = "taskId", default, skip_serializing_if = "Option::is_none")]
     pub task_id: Option<String>,
+
+    /// Additional environment variables to inject into the agent pod.
+    #[serde(rename = "envVars", default, skip_serializing_if = "Option::is_none")]
+    pub env_vars: Option<BTreeMap<String, String>>,
 }
 
 /// Status written by the operator to reflect observed pod state.

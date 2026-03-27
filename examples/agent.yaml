@@ -1,0 +1,26 @@
+# Example agent definition for mob.
+# Apply with: mob agent apply examples/agent.yaml
+
+name: researcher
+agent_template: mob-agent-pydantic:latest
+domain: dev
+system_prompt: |
+  You are a research assistant.
+  Be concise and cite sources.
+model_endpoint: "anthropic:claude-haiku-4-5-20251001"
+
+# Skills to attach (by name)
+skills:
+  - code-review
+
+# Environment variables for the agent pod.
+# Empty values are required at runtime: mob agent run researcher --env ANTHROPIC_API_KEY=sk-...
+env:
+  ANTHROPIC_API_KEY: ""
+  LLM_TIMEOUT: "120"
+
+# Custom settings injected as AGENT_CUSTOM_* env vars.
+# e.g. temperature -> AGENT_CUSTOM_TEMPERATURE=0.7
+custom:
+  temperature: "0.7"
+  max_tokens: "4096"

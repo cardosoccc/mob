@@ -1,5 +1,7 @@
 """Agent service."""
 
+import json
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +28,8 @@ async def create_agent(
     system_prompt: str | None = None,
     model_endpoint: str | None = None,
     skill_ids: list[str] | None = None,
+    env_defaults: dict[str, str] | None = None,
+    custom_config: dict[str, str] | None = None,
 ) -> Agent:
     agent = Agent(
         name=name,
@@ -33,6 +37,8 @@ async def create_agent(
         agent_template=agent_template,
         model_endpoint=model_endpoint,
         domain_id=domain_id,
+        env_defaults=json.dumps(env_defaults) if env_defaults else None,
+        custom_config=json.dumps(custom_config) if custom_config else None,
     )
     session.add(agent)
     await session.flush()
@@ -63,6 +69,8 @@ async def update_agent(
     agent_template: str | None = None,
     model_endpoint: str | None = None,
     skill_ids: list[str] | None = None,
+    env_defaults: dict[str, str] | None = None,
+    custom_config: dict[str, str] | None = None,
 ) -> Agent:
     agent = await session.get(Agent, agent_id)
     if not agent:
@@ -76,6 +84,10 @@ async def update_agent(
         agent.agent_template = agent_template
     if model_endpoint is not None:
         agent.model_endpoint = model_endpoint
+    if env_defaults is not None:
+        agent.env_defaults = json.dumps(env_defaults)
+    if custom_config is not None:
+        agent.custom_config = json.dumps(custom_config)
 
     if skill_ids is not None:
         # Remove existing skills
