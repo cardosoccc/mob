@@ -2,7 +2,7 @@
 #
 # dev-setup.sh — Bootstrap a local Kind + PostgreSQL development environment
 #
-# PostgreSQL runs via Docker Compose (docker-compose.dev.yaml).
+# PostgreSQL runs via Docker Compose (docker-compose.yaml).
 # The API runs in a local Kind cluster.
 # Both share the 'mob-dev' Docker network so pods can reach Postgres.
 #
@@ -14,40 +14,31 @@
 #
 set -euo pipefail
 
-KIND_CLUSTER="mob-local"
-KIND_CONFIG="kind-config.yaml"
-KIND_NODE="${KIND_CLUSTER}-control-plane"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib.sh"
+
 APP_IMAGE="mob-api"
 APP_TAG="latest"
 OPERATOR_IMAGE="mob-operator"
 OPERATOR_TAG="latest"
 AGENT_IMAGE="mob-agent-pydantic"
 AGENT_TAG="latest"
-NAMESPACE="mob"
-KUBE_CTX="kind-${KIND_CLUSTER}"
 COMPOSE_FILE="docker-compose.yaml"
 DOCKER_NETWORK="mob-dev"
 POSTGRES_CONTAINER="mob-postgres"
-
-log()  { echo "==> $*"; }
-info() { echo "    $*"; }
-
-cluster_exists() {
-  kind get clusters 2>/dev/null | grep -q "^${KIND_CLUSTER}$"
-}
 
 get_postgres_ip() {
   docker inspect -f "{{(index .NetworkSettings.Networks \"${DOCKER_NETWORK}\").IPAddress}}" "${POSTGRES_CONTAINER}" 2>/dev/null
 }
 
 cmd_teardown() {
-  log "Tearing down Kind cluster..."
-  kind delete cluster --name "${KIND_CLUSTER}" 2>/dev/null || true
+  delete_kind_cluster
 
   log "Stopping Docker Compose PostgreSQL..."
   docker compose -f "${COMPOSE_FILE}" down -v 2>/dev/null || true
 
-  log "Teardown complete."
+  clear_active_mode
+  log "Dev environment torn down."
 }
 
 cmd_status() {
@@ -68,18 +59,8 @@ cmd_status() {
 }
 
 cmd_setup() {
-  # --- Prerequisites ---
-  for cmd in docker kind kubectl; do
-    if ! command -v "$cmd" &>/dev/null; then
-      echo "ERROR: '${cmd}' is required but not found in PATH." >&2
-      exit 1
-    fi
-  done
-
-  if ! docker info &>/dev/null; then
-    echo "ERROR: Docker daemon is not running." >&2
-    exit 1
-  fi
+  check_prerequisites
+  check_mode_conflict "dev"
 
   # --- Start PostgreSQL via Docker Compose ---
   log "Starting PostgreSQL via Docker Compose..."
@@ -92,13 +73,7 @@ cmd_setup() {
   log "PostgreSQL is healthy."
 
   # --- Create Kind cluster ---
-  if cluster_exists; then
-    log "Kind cluster '${KIND_CLUSTER}' already exists, reusing it."
-  else
-    log "Creating Kind cluster '${KIND_CLUSTER}'..."
-    kind create cluster --config "${KIND_CONFIG}"
-    log "Cluster created."
-  fi
+  create_kind_cluster
 
   # --- Connect Kind node to the Compose network ---
   if docker inspect "${KIND_NODE}" --format='{{json .NetworkSettings.Networks}}' | grep -q "${DOCKER_NETWORK}"; then
@@ -120,19 +95,9 @@ cmd_setup() {
   sed "s/127\.0\.0\.1/${POSTGRES_IP}/g" deploy/overlays/dev/postgres.yaml > /tmp/mob-postgres-endpoints.yaml
 
   # --- Build and load Docker images ---
-  log "Building Docker image '${APP_IMAGE}:${APP_TAG}'..."
-  docker build -t "${APP_IMAGE}:${APP_TAG}" .
-
-  log "Building Docker image '${OPERATOR_IMAGE}:${OPERATOR_TAG}'..."
-  docker build -t "${OPERATOR_IMAGE}:${OPERATOR_TAG}" ./operator/
-
-  log "Building Docker image '${AGENT_IMAGE}:${AGENT_TAG}'..."
-  docker build -t "${AGENT_IMAGE}:${AGENT_TAG}" -f Dockerfile.agent .
-
-  log "Loading images into Kind cluster..."
-  kind load docker-image "${APP_IMAGE}:${APP_TAG}" --name "${KIND_CLUSTER}"
-  kind load docker-image "${OPERATOR_IMAGE}:${OPERATOR_TAG}" --name "${KIND_CLUSTER}"
-  kind load docker-image "${AGENT_IMAGE}:${AGENT_TAG}" --name "${KIND_CLUSTER}"
+  build_and_load_image "${APP_IMAGE}" "${APP_TAG}" "Dockerfile" "."
+  build_and_load_image "${OPERATOR_IMAGE}" "${OPERATOR_TAG}" "./operator/Dockerfile" "./operator/"
+  build_and_load_image "${AGENT_IMAGE}" "${AGENT_TAG}" "Dockerfile.agent" "."
 
   # --- Deploy with kustomize ---
   log "Deploying API to Kind cluster..."
@@ -147,9 +112,11 @@ cmd_setup() {
   log "Waiting for API deployment to be ready..."
   kubectl --context "${KUBE_CTX}" -n "${NAMESPACE}" rollout status deployment/mob-api --timeout=180s
 
+  set_active_mode "dev"
+
   # --- Summary ---
   echo
-  log "Local dev environment is ready!"
+  log "Dev environment is ready!"
   echo
   info "API:        http://localhost:8080"
   info "Health:     http://localhost:8080/health"
@@ -157,11 +124,11 @@ cmd_setup() {
   info "Kubectl:    kubectl --context ${KUBE_CTX} -n ${NAMESPACE} ..."
   echo
   info "Useful commands:"
-  info "  make dev-kind-status   — Show pod/service status"
-  info "  make dev-kind-logs     — Tail API logs"
-  info "  make dev-kind-psql     — Open psql shell"
-  info "  make dev-kind-rebuild  — Rebuild and redeploy the API"
-  info "  make dev-kind-down     — Tear down everything"
+  info "  make dev-status    — Show pod/service status"
+  info "  make dev-logs      — Tail API logs"
+  info "  make dev-psql      — Open psql shell"
+  info "  make dev-rebuild   — Rebuild and redeploy the API"
+  info "  make dev-down      — Tear down everything"
 }
 
 case "${1:-setup}" in

@@ -3,13 +3,14 @@
 import asyncio
 import logging
 import secrets
+import socket
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from mob.config import get_settings
+from mob.config import get_settings, is_local_mode
 from mob.models.agent import Agent
 from mob.models.agent_run import AgentRun, AgentRunState
 from mob.services import ServiceError
@@ -272,6 +273,67 @@ def _get_http_client() -> httpx.AsyncClient:
     return _http_client
 
 
+def _get_free_port() -> int:
+    """Find an available local port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]
+
+
+async def _send_via_port_forward(
+    pod_name: str, message: str, headers: dict
+) -> dict:
+    """Send a message to an agent pod via kubectl port-forward (for local mode)."""
+    settings = get_settings()
+    local_port = _get_free_port()
+
+    # Start port-forward as a background subprocess
+    pf_proc = await asyncio.create_subprocess_exec(
+        "kubectl", "port-forward",
+        f"pod/{pod_name}", f"{local_port}:{AGENT_HTTP_PORT}",
+        "-n", settings.kubernetes_namespace,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    try:
+        # Wait briefly for port-forward to establish
+        await asyncio.sleep(1)
+
+        if pf_proc.returncode is not None:
+            stderr = await pf_proc.stderr.read()
+            raise ServiceError(
+                f"Port-forward failed: {stderr.decode().strip()}", 502
+            )
+
+        # Send message through the tunnel
+        client = _get_http_client()
+        try:
+            resp = await client.post(
+                f"http://127.0.0.1:{local_port}/message",
+                json={"message": message},
+                headers=headers,
+            )
+        except httpx.ConnectError:
+            raise ServiceError("Agent is unreachable via port-forward", 502)
+        except httpx.TimeoutException:
+            raise ServiceError("Agent request timed out", 504)
+
+        if resp.status_code == 409:
+            data = resp.json()
+            raise ServiceError(data.get("error", "Agent is busy"), 409)
+        if resp.status_code == 401:
+            raise ServiceError("Agent authentication failed", 502)
+        if resp.status_code != 200:
+            raise ServiceError("Agent returned an error", 502)
+
+        return resp.json()
+
+    finally:
+        pf_proc.terminate()
+        await pf_proc.wait()
+
+
 async def send_message(
     session: AsyncSession, run_id: str, message: str
 ) -> dict:
@@ -292,14 +354,18 @@ async def send_message(
     if not pod_name:
         raise ServiceError("Agent pod name not available", 502)
 
-    # Get pod IP (run sync K8s call in thread to avoid blocking event loop)
-    pod_ip = await asyncio.to_thread(_get_pod_ip_sync, pod_name)
-
-    # Forward message to agent pod
+    # Build auth headers
     headers = {}
-    auth_token = get_settings().agent_auth_token if hasattr(get_settings(), "agent_auth_token") else None
+    auth_token = getattr(get_settings(), "agent_auth_token", None)
     if auth_token:
         headers["Authorization"] = f"Bearer {auth_token}"
+
+    # Route based on mode: local uses port-forward, dev/remote uses pod IP directly
+    if is_local_mode():
+        return await _send_via_port_forward(pod_name, message, headers)
+
+    # Dev/remote mode: direct pod IP access
+    pod_ip = await asyncio.to_thread(_get_pod_ip_sync, pod_name)
 
     try:
         client = _get_http_client()

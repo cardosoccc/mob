@@ -1,0 +1,7 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mob-api
+  namespace: mob
+spec:
+  replicas: 0
