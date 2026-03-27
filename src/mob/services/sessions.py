@@ -215,6 +215,64 @@ async def create_session(
         raise ServiceError(f"Session name '{name}' already exists", 409)
     await session.refresh(sess)
 
+    # Create skills ConfigMap if agent has skills
+    skills_configmap_name = None
+    from sqlalchemy.orm import selectinload
+    agent_with_skills = await session.execute(
+        select(Agent).options(selectinload(Agent.skills)).where(Agent.id == agent_id)
+    )
+    agent_obj = agent_with_skills.scalar_one()
+    if agent_obj.skills:
+        from mob.models.skill import Skill
+        skill_ids = [ask.skill_id for ask in agent_obj.skills]
+        skills_result = await session.execute(
+            select(Skill).where(Skill.id.in_(skill_ids))
+        )
+        skill_models = list(skills_result.scalars().all())
+
+        if skill_models:
+            skills_configmap_name = f"mob-skills-{name}"
+            configmap_data = {}
+            for sk in skill_models:
+                # Key is skill-name.md, value is the SKILL.md content
+                md_content = f"---\nname: {sk.name}\ndescription: {sk.description}\n---\n"
+                if sk.skill_md:
+                    md_content += sk.skill_md
+                configmap_data[f"{sk.name}.md"] = md_content
+
+            # Create the ConfigMap via K8s API
+            try:
+                from kubernetes import client as k8s_client
+                _load_k8s_config()
+                core_api = k8s_client.CoreV1Api()
+                cm = k8s_client.V1ConfigMap(
+                    metadata=k8s_client.V1ObjectMeta(
+                        name=skills_configmap_name,
+                        namespace=get_settings().kubernetes_namespace,
+                    ),
+                    data=configmap_data,
+                )
+                core_api.create_namespaced_config_map(
+                    namespace=get_settings().kubernetes_namespace,
+                    body=cm,
+                )
+                logger.info(f"Created skills ConfigMap {skills_configmap_name}")
+            except Exception as e:
+                logger.warning(f"Failed to create skills ConfigMap: {e}")
+                skills_configmap_name = None
+
+    # Resolve template resource limits
+    resource_cpu_limit = None
+    resource_memory_limit = None
+    from mob.models.template import Template
+    result = await session.execute(
+        select(Template).where(Template.image == agent.agent_template)
+    )
+    tmpl = result.scalar_one_or_none()
+    if tmpl:
+        resource_cpu_limit = tmpl.resource_cpu_limit
+        resource_memory_limit = tmpl.resource_memory_limit
+
     # Try to create a Session CR in Kubernetes
     custom_api = _try_get_k8s_custom_api()
     if custom_api:
@@ -234,8 +292,13 @@ async def create_session(
                     "modelEndpoint": agent.model_endpoint,
                     "taskId": str(task_id) if task_id else None,
                     "envVars": _build_env_vars(agent, env_overrides),
+                    "skillsConfigmap": skills_configmap_name,
                 },
             }
+            if resource_cpu_limit:
+                cr["spec"]["resourceCpuLimit"] = resource_cpu_limit
+            if resource_memory_limit:
+                cr["spec"]["resourceMemoryLimit"] = resource_memory_limit
             custom_api.create_namespaced_custom_object(
                 group="mob.io",
                 version="v1",

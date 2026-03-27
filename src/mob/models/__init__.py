@@ -9,6 +9,7 @@ from mob.models.agent import Agent
 from mob.models.session import Session, SessionState
 from mob.models.task import Task
 from mob.models.skill import Skill
+from mob.models.template import Template
 
 __all__ = [
     "Base",
@@ -22,4 +23,5 @@ __all__ = [
     "SessionState",
     "Task",
     "Skill",
+    "Template",
 ]

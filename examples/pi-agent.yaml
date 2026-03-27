@@ -1,0 +1,18 @@
+# Pi coding agent with shell tools.
+# Apply with: mob agent apply examples/pi-agent.yaml
+
+name: code-assistant
+agent_template: mob-agent-pi
+domain: dev
+system_prompt: |
+  You are a coding assistant with access to shell tools.
+model_endpoint: "anthropic:claude-sonnet-4-6-20260320"
+
+skills:
+  - code-review
+
+env:
+  ANTHROPIC_API_KEY: ""
+
+custom:
+  pi_mode: "interactive"

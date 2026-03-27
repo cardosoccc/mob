@@ -14,6 +14,7 @@ from mob.schemas import (
     OrganizationResponse,
     SkillResponse,
     TaskResponse,
+    TemplateResponse,
     UserResponse,
 )
 from mob.services import ServiceError
@@ -24,6 +25,7 @@ from mob.services import groups as group_svc
 from mob.services import organizations as org_svc
 from mob.services import skills as skill_svc
 from mob.services import tasks as task_svc
+from mob.services import templates as template_svc
 from mob.services import users as user_svc
 
 
@@ -310,9 +312,12 @@ async def _route(session: Any, method: str, path: str, data: dict, params: dict)
             model = await skill_svc.create_skill(
                 session,
                 name=data["name"],
-                description=data.get("description"),
-                skills_md=data.get("skills_md"),
-                references_path=data.get("references_path"),
+                description=data["description"],
+                skill_md=data.get("skill_md"),
+                license=data.get("license"),
+                compatibility=data.get("compatibility"),
+                metadata_json=data.get("metadata_json"),
+                allowed_tools=data.get("allowed_tools"),
             )
             return _to_dict(model, SkillResponse)
 
@@ -328,12 +333,56 @@ async def _route(session: Any, method: str, path: str, data: dict, params: dict)
                 skill_id,
                 name=data.get("name"),
                 description=data.get("description"),
-                skills_md=data.get("skills_md"),
-                references_path=data.get("references_path"),
+                skill_md=data.get("skill_md"),
+                license=data.get("license"),
+                compatibility=data.get("compatibility"),
+                metadata_json=data.get("metadata_json"),
+                allowed_tools=data.get("allowed_tools"),
             )
             return _to_dict(model, SkillResponse)
         if method == "DELETE":
             await skill_svc.delete_skill(session, skill_id)
+            return None
+
+    # ── Templates ───────────────────────────────────────────────
+    if path == "/templates":
+        if method == "GET":
+            models = await template_svc.list_templates(session)
+            return _to_list(models, TemplateResponse)
+        if method == "POST":
+            model = await template_svc.create_template(
+                session,
+                name=data["name"],
+                image=data["image"],
+                runtime=data["runtime"],
+                description=data.get("description"),
+                capabilities=data.get("capabilities"),
+                resource_cpu_limit=data.get("resource_cpu_limit"),
+                resource_memory_limit=data.get("resource_memory_limit"),
+            )
+            return _to_dict(model, TemplateResponse)
+
+    m = _match(r"^/templates/([^/]+)$", path)
+    if m:
+        template_id = m.group(1)
+        if method == "GET":
+            model = await template_svc.get_template(session, template_id)
+            return _to_dict(model, TemplateResponse)
+        if method == "PUT":
+            model = await template_svc.update_template(
+                session,
+                template_id,
+                name=data.get("name"),
+                image=data.get("image"),
+                description=data.get("description"),
+                runtime=data.get("runtime"),
+                capabilities=data.get("capabilities"),
+                resource_cpu_limit=data.get("resource_cpu_limit"),
+                resource_memory_limit=data.get("resource_memory_limit"),
+            )
+            return _to_dict(model, TemplateResponse)
+        if method == "DELETE":
+            await template_svc.delete_template(session, template_id)
             return None
 
     raise ValueError(f"No local route for {method} {path}")

@@ -23,8 +23,11 @@ async def create_skill(data: SkillCreate, session: AsyncSession = Depends(get_se
             session,
             name=data.name,
             description=data.description,
-            skills_md=data.skills_md,
-            references_path=data.references_path,
+            skill_md=data.skill_md,
+            license=data.license,
+            compatibility=data.compatibility,
+            metadata_json=data.metadata_json,
+            allowed_tools=data.allowed_tools,
         )
     except ServiceError as e:
         raise HTTPException(e.status_code, e.message)
@@ -48,8 +51,11 @@ async def update_skill(
             skill_id,
             name=data.name,
             description=data.description,
-            skills_md=data.skills_md,
-            references_path=data.references_path,
+            skill_md=data.skill_md,
+            license=data.license,
+            compatibility=data.compatibility,
+            metadata_json=data.metadata_json,
+            allowed_tools=data.allowed_tools,
         )
     except ServiceError as e:
         raise HTTPException(e.status_code, e.message)

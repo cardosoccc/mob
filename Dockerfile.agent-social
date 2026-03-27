@@ -1,0 +1,10 @@
+FROM mob-agent-pydantic:latest
+
+# Messaging SDKs
+RUN pip install --no-cache-dir pywa aiogram
+
+# Social media / OAuth
+RUN pip install --no-cache-dir requests-oauthlib
+
+# Copy integration modules
+COPY src/mob/agent/integrations/ /app/src/mob/agent/integrations/

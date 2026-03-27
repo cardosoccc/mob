@@ -40,14 +40,46 @@ _message_history: list | None = None
 _ai_agent: Agent | None = None
 
 
+def _load_skills() -> str:
+    """Load skill instructions from /skills/ directory if mounted."""
+    skills_dir = "/skills"
+    if not os.path.isdir(skills_dir):
+        return ""
+
+    parts = []
+    for filename in sorted(os.listdir(skills_dir)):
+        if filename.endswith(".md"):
+            filepath = os.path.join(skills_dir, filename)
+            try:
+                with open(filepath) as f:
+                    content = f.read()
+                parts.append(f"\n## Skill: {filename.removesuffix('.md')}\n{content}")
+            except Exception:
+                logger.warning(f"Failed to read skill file: {filepath}")
+
+    if parts:
+        return "\n\n# Available Skills\n" + "\n".join(parts)
+    return ""
+
+
 def _get_agent() -> Agent:
     """Lazily build the pydantic-ai agent from environment configuration."""
     global _ai_agent
     if _ai_agent is None:
+        skills_context = _load_skills()
+        full_prompt = SYSTEM_PROMPT
+        if skills_context:
+            full_prompt += skills_context
         _ai_agent = Agent(
             MODEL_ENDPOINT,
-            instructions=SYSTEM_PROMPT,
+            instructions=full_prompt,
         )
+        # Register integration tools if available
+        try:
+            from mob.agent.integrations.registry import register_integrations
+            register_integrations(_ai_agent)
+        except ImportError:
+            pass  # integrations not installed (base image)
     return _ai_agent
 
 

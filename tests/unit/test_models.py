@@ -94,14 +94,14 @@ async def test_group_membership(session):
 
 @pytest.mark.asyncio
 async def test_create_skill(session):
-    skill = Skill(name="code-review", description="Reviews code", skills_md="# Code Review")
+    skill = Skill(name="code-review", description="Reviews code", skill_md="# Code Review")
     session.add(skill)
     await session.commit()
 
     result = await session.execute(select(Skill).where(Skill.name == "code-review"))
     fetched = result.scalar_one()
     assert fetched.description == "Reviews code"
-    assert fetched.skills_md == "# Code Review"
+    assert fetched.skill_md == "# Code Review"
 
 
 @pytest.mark.asyncio

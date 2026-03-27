@@ -1,5 +1,7 @@
 """Skill service."""
 
+import json
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,9 +17,12 @@ async def list_skills(session: AsyncSession) -> list[Skill]:
 async def create_skill(
     session: AsyncSession,
     name: str,
-    description: str | None = None,
-    skills_md: str | None = None,
-    references_path: str | None = None,
+    description: str,
+    skill_md: str | None = None,
+    license: str | None = None,
+    compatibility: str | None = None,
+    metadata_json: dict[str, str] | None = None,
+    allowed_tools: str | None = None,
 ) -> Skill:
     existing = await session.execute(select(Skill).where(Skill.name == name))
     if existing.scalar_one_or_none():
@@ -26,8 +31,11 @@ async def create_skill(
     skill = Skill(
         name=name,
         description=description,
-        skills_md=skills_md,
-        references_path=references_path,
+        skill_md=skill_md,
+        license=license,
+        compatibility=compatibility,
+        metadata_json=json.dumps(metadata_json) if metadata_json else None,
+        allowed_tools=allowed_tools,
     )
     session.add(skill)
     await session.commit()
@@ -47,8 +55,11 @@ async def update_skill(
     skill_id: str,
     name: str | None = None,
     description: str | None = None,
-    skills_md: str | None = None,
-    references_path: str | None = None,
+    skill_md: str | None = None,
+    license: str | None = None,
+    compatibility: str | None = None,
+    metadata_json: dict[str, str] | None = None,
+    allowed_tools: str | None = None,
 ) -> Skill:
     skill = await session.get(Skill, skill_id)
     if not skill:
@@ -57,10 +68,16 @@ async def update_skill(
         skill.name = name
     if description is not None:
         skill.description = description
-    if skills_md is not None:
-        skill.skills_md = skills_md
-    if references_path is not None:
-        skill.references_path = references_path
+    if skill_md is not None:
+        skill.skill_md = skill_md
+    if license is not None:
+        skill.license = license
+    if compatibility is not None:
+        skill.compatibility = compatibility
+    if metadata_json is not None:
+        skill.metadata_json = json.dumps(metadata_json)
+    if allowed_tools is not None:
+        skill.allowed_tools = allowed_tools
     await session.commit()
     await session.refresh(skill)
     return skill

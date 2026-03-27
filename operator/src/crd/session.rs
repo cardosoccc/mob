@@ -46,6 +46,18 @@ pub struct SessionSpec {
     /// Additional environment variables to inject into the agent pod.
     #[serde(rename = "envVars", default, skip_serializing_if = "Option::is_none")]
     pub env_vars: Option<BTreeMap<String, String>>,
+
+    /// Name of a ConfigMap containing skill SKILL.md files to mount at /skills/.
+    #[serde(rename = "skillsConfigmap", default, skip_serializing_if = "Option::is_none")]
+    pub skills_configmap: Option<String>,
+
+    /// CPU resource limit override from template registry.
+    #[serde(rename = "resourceCpuLimit", default, skip_serializing_if = "Option::is_none")]
+    pub resource_cpu_limit: Option<String>,
+
+    /// Memory resource limit override from template registry.
+    #[serde(rename = "resourceMemoryLimit", default, skip_serializing_if = "Option::is_none")]
+    pub resource_memory_limit: Option<String>,
 }
 
 /// Status written by the operator to reflect observed pod state.

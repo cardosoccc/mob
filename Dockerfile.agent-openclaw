@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+# Install OpenClaw
+RUN pip install --no-cache-dir openclaw
+
+# Install adapter dependencies
+RUN pip install --no-cache-dir fastapi uvicorn httpx kubernetes
+
+# Copy MOB adapter
+COPY src/mob/agent/adapters/openclaw_adapter.py /app/adapter.py
+COPY src/mob/agent/k8s.py /app/k8s.py
+
+EXPOSE 8081
+
+ENTRYPOINT ["python", "/app/adapter.py"]

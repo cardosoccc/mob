@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mob-webhook-gateway
+  namespace: mob
+  labels:
+    app.kubernetes.io/name: mob-webhook-gateway
+    app.kubernetes.io/component: webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mob-webhook-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mob-webhook-gateway
+        app.kubernetes.io/component: webhook
+    spec:
+      serviceAccountName: mob-api
+      containers:
+        - name: gateway
+          image: mob-webhook-gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+              name: http
+          env:
+            - name: MOB_KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          envFrom:
+            - secretRef:
+                name: mob-webhook-secrets
+                optional: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mob-webhook-gateway
+  namespace: mob
+spec:
+  selector:
+    app.kubernetes.io/name: mob-webhook-gateway
+  ports:
+    - port: 8082
+      targetPort: 8082
+      name: http

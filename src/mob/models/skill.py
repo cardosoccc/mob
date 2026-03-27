@@ -10,10 +10,13 @@ class Skill(Base, TimestampMixin):
     __tablename__ = "skills"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    skills_md: Mapped[str | None] = mapped_column(Text, nullable=True)
-    references_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    description: Mapped[str] = mapped_column(String(1024), nullable=False)
+    skill_md: Mapped[str | None] = mapped_column(Text, nullable=True)
+    license: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    compatibility: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    allowed_tools: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     def __repr__(self) -> str:
         return f"<Skill(id={self.id}, name={self.name})>"
