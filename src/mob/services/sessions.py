@@ -396,6 +396,31 @@ async def get_session_live_status(session_id: str) -> dict:
     return await asyncio.to_thread(get_session_live_status_sync, session_id)
 
 
+def _get_pod_logs_sync(pod_name: str, tail_lines: int = 100) -> list[str]:
+    """Fetch actual pod logs via CoreV1Api. Returns list of log lines."""
+    core_api = _try_get_k8s_core_api()
+    if not core_api or not pod_name:
+        return []
+    try:
+        log_str = core_api.read_namespaced_pod_log(
+            name=pod_name,
+            namespace=get_settings().kubernetes_namespace,
+            tail_lines=tail_lines,
+            container="agent",
+        )
+        return log_str.splitlines() if log_str else []
+    except Exception:
+        return []
+
+
+async def get_session_logs(session_id: str, tail: int = 100) -> dict:
+    """Fetch live status and actual pod logs for a session."""
+    status = await get_session_live_status(session_id)
+    pod_name = status.get("podName", "")
+    logs = await asyncio.to_thread(_get_pod_logs_sync, pod_name, tail)
+    return {"logs": logs, "status": status}
+
+
 async def stop_session(session: AsyncSession, session_id: str) -> Session:
     sess = await session.get(Session, session_id)
     if not sess:

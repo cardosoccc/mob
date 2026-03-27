@@ -254,8 +254,8 @@ async def _route(session: Any, method: str, path: str, data: dict, params: dict)
     if m:
         session_id = m.group(1)
         if method == "GET":
-            status = await session_svc.get_session_live_status(session_id)
-            return {"logs": status.get("logs", []), "status": status}
+            tail = int(params.get("tail", 100))
+            return await session_svc.get_session_logs(session_id, tail=tail)
 
     m = _match(r"^/sessions/([^/]+)/stop$", path)
     if m:

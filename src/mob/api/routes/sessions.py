@@ -50,12 +50,9 @@ async def get_session_by_id(session_id: str, session: AsyncSession = Depends(get
 
 @router.get("/{session_id}/logs")
 async def get_session_logs(session_id: str, tail: int = 100):
-    """Fetch live logs from the Session CR status in Kubernetes."""
-    status = await session_service.get_session_live_status(session_id)
-    logs = status.get("logs", [])
-    if tail and len(logs) > tail:
-        logs = logs[-tail:]
-    return JSONResponse(content={"logs": logs, "status": status})
+    """Fetch live status and actual pod logs for a session."""
+    result = await session_service.get_session_logs(session_id, tail=tail)
+    return JSONResponse(content=result)
 
 
 @router.post("/{session_id}/stop", response_model=SessionResponse)
