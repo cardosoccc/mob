@@ -59,6 +59,11 @@ def test_get_config_value_missing(config_dir):
     assert get_config_value("nonexistent") is None
 
 
+def test_set_config_value_validates_env(config_dir):
+    with pytest.raises(ValueError, match="Invalid environment"):
+        set_config_value("env", "banana")
+
+
 def test_settings_defaults():
     settings = Settings()
     assert settings.api_host == "localhost"

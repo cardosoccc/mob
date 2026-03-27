@@ -100,6 +100,10 @@ def get_config_value(key: str) -> Any:
 def set_config_value(key: str, value: str) -> None:
     config = load_config()
     keys = key.split(".")
+    # Validate 'env' key against VALID_ENVS
+    if keys == ["env"] and value not in VALID_ENVS:
+        msg = f"Invalid environment '{value}'. Valid options: {', '.join(VALID_ENVS)}"
+        raise ValueError(msg)
     current = config
     for k in keys[:-1]:
         if k not in current or not isinstance(current[k], dict):

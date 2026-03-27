@@ -126,5 +126,5 @@ def init(env: str | None):
     console.print(
         f"[dim]Config saved to {config}[/dim]"
         if False
-        else f"[dim]Use 'mob config set env <name>' to switch environments.[/dim]"
+        else f"[dim]Use 'mob env set <name>' to switch environments.[/dim]"
     )
