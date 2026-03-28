@@ -18,7 +18,6 @@ _RESOURCE_CONFIG: dict[str, tuple[str, str, str | None]] = {
     "domain": ("/domains", "identifier", "organization_id"),
     "user": ("/users", "email", None),
     "skill": ("/skills", "name", None),
-    "template": ("/templates", "name", None),
     "group": ("/groups", "name", "organization_id"),
     "agent": ("/agents", "name", "domain_id"),
     "session": ("/sessions", "name", "agent_id"),

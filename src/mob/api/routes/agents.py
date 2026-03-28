@@ -31,6 +31,8 @@ async def create_agent(data: AgentCreate, session: AsyncSession = Depends(get_se
             skill_ids=data.skill_ids,
             env_defaults=data.env_defaults,
             custom_config=data.custom_config,
+            resource_cpu_limit=data.resource_cpu_limit,
+            resource_memory_limit=data.resource_memory_limit,
         )
     except ServiceError as e:
         raise HTTPException(e.status_code, e.message)
@@ -59,6 +61,8 @@ async def update_agent(
             skill_ids=data.skill_ids,
             env_defaults=data.env_defaults,
             custom_config=data.custom_config,
+            resource_cpu_limit=data.resource_cpu_limit,
+            resource_memory_limit=data.resource_memory_limit,
         )
     except ServiceError as e:
         raise HTTPException(e.status_code, e.message)

@@ -261,17 +261,9 @@ async def create_session(
                 logger.warning(f"Failed to create skills ConfigMap: {e}")
                 skills_configmap_name = None
 
-    # Resolve template resource limits
-    resource_cpu_limit = None
-    resource_memory_limit = None
-    from mob.models.template import Template
-    result = await session.execute(
-        select(Template).where(Template.image == agent.agent_template)
-    )
-    tmpl = result.scalar_one_or_none()
-    if tmpl:
-        resource_cpu_limit = tmpl.resource_cpu_limit
-        resource_memory_limit = tmpl.resource_memory_limit
+    # Resource limits from agent
+    resource_cpu_limit = agent.resource_cpu_limit
+    resource_memory_limit = agent.resource_memory_limit
 
     # Try to create a Session CR in Kubernetes
     custom_api = _try_get_k8s_custom_api()

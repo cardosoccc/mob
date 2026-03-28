@@ -53,6 +53,10 @@ def _build_payload_from_yaml(yaml_path: str) -> dict:
         payload["env_defaults"] = spec.env
     if spec.custom:
         payload["custom_config"] = spec.custom
+    if spec.resource_cpu_limit:
+        payload["resource_cpu_limit"] = spec.resource_cpu_limit
+    if spec.resource_memory_limit:
+        payload["resource_memory_limit"] = spec.resource_memory_limit
     return payload
 
 
@@ -63,6 +67,8 @@ def _build_payload_from_yaml(yaml_path: str) -> dict:
 @click.option("--system-prompt", help="System prompt for the agent")
 @click.option("--model-endpoint", help="Model endpoint URL")
 @click.option("--skill", "skill_ids", multiple=True, help="Skill IDs to attach")
+@click.option("--cpu-limit", "resource_cpu_limit", help="CPU resource limit (e.g. 2000m)")
+@click.option("--memory-limit", "resource_memory_limit", help="Memory resource limit (e.g. 2Gi)")
 @click.option("--file", "yaml_file", type=click.Path(exists=True), help="YAML definition file")
 def agent_create(
     name: str | None,
@@ -71,6 +77,8 @@ def agent_create(
     system_prompt: str | None,
     model_endpoint: str | None,
     skill_ids: tuple[str, ...],
+    resource_cpu_limit: str | None,
+    resource_memory_limit: str | None,
     yaml_file: str | None,
 ):
     """Create an agent from flags or a YAML file."""
@@ -89,6 +97,10 @@ def agent_create(
             payload["system_prompt"] = system_prompt
         if model_endpoint:
             payload["model_endpoint"] = model_endpoint
+        if resource_cpu_limit:
+            payload["resource_cpu_limit"] = resource_cpu_limit
+        if resource_memory_limit:
+            payload["resource_memory_limit"] = resource_memory_limit
 
     data = api_post("/agents", payload)
     print_success(f"Agent '{data['name']}' created.")
@@ -124,6 +136,8 @@ def agent_apply(yaml_file: str):
 @click.option("--template", "agent_template", help="New Docker image")
 @click.option("--system-prompt", help="New system prompt")
 @click.option("--model-endpoint", help="New model endpoint URL")
+@click.option("--cpu-limit", "resource_cpu_limit", help="CPU resource limit (e.g. 2000m)")
+@click.option("--memory-limit", "resource_memory_limit", help="Memory resource limit (e.g. 2Gi)")
 def agent_edit(
     ref: str,
     domain_id: str | None,
@@ -131,6 +145,8 @@ def agent_edit(
     agent_template: str | None,
     system_prompt: str | None,
     model_endpoint: str | None,
+    resource_cpu_limit: str | None,
+    resource_memory_limit: str | None,
 ):
     """Edit an agent. REF is a name or position number."""
     agent_id = resolve_ref("agent", ref, domain_id=domain_id)
@@ -143,6 +159,10 @@ def agent_edit(
         payload["system_prompt"] = system_prompt
     if model_endpoint:
         payload["model_endpoint"] = model_endpoint
+    if resource_cpu_limit:
+        payload["resource_cpu_limit"] = resource_cpu_limit
+    if resource_memory_limit:
+        payload["resource_memory_limit"] = resource_memory_limit
     data = api_put(f"/agents/{agent_id}", payload)
     print_success("Agent updated.")
     print_detail(data)

@@ -12,7 +12,6 @@ from mob.api.routes import (
     sessions,
     skills,
     tasks,
-    templates,
     users,
 )
 from mob.database import close_db, init_db
@@ -40,7 +39,6 @@ def create_app() -> FastAPI:
     app.include_router(sessions.router, prefix="/api/v1/sessions", tags=["sessions"])
     app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["tasks"])
     app.include_router(skills.router, prefix="/api/v1/skills", tags=["skills"])
-    app.include_router(templates.router, prefix="/api/v1/templates", tags=["templates"])
 
     @app.get("/health")
     async def health():

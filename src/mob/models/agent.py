@@ -16,6 +16,8 @@ class Agent(Base, TimestampMixin):
     model_endpoint: Mapped[str | None] = mapped_column(String(500), nullable=True)
     env_defaults: Mapped[str | None] = mapped_column(Text, nullable=True)
     custom_config: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resource_cpu_limit: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    resource_memory_limit: Mapped[str | None] = mapped_column(String(50), nullable=True)
     domain_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("domains.id", ondelete="CASCADE"), nullable=False
     )
