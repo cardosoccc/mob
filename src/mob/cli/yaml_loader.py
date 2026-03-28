@@ -15,6 +15,8 @@ class AgentYaml(BaseModel):
     skills: list[str] | None = None  # names, resolved to UUIDs by CLI
     env: dict[str, str] | None = None
     custom: dict[str, str] | None = None
+    resource_cpu_limit: str | None = None
+    resource_memory_limit: str | None = None
 
 
 def load_agent_yaml(path: str) -> AgentYaml:

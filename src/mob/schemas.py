@@ -99,50 +99,6 @@ class GroupMemberAdd(BaseModel):
     user_id: str
 
 
-# ─── Template ────────────────────────────────────────────────
-
-class TemplateCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
-    image: str = Field(..., min_length=1, max_length=500)
-    description: str | None = None
-    runtime: str = Field(..., min_length=1, max_length=50)
-    capabilities: list[str] | None = None
-    resource_cpu_limit: str | None = Field(None, max_length=20)
-    resource_memory_limit: str | None = Field(None, max_length=20)
-
-
-class TemplateUpdate(BaseModel):
-    name: str | None = Field(None, min_length=1, max_length=255)
-    image: str | None = Field(None, min_length=1, max_length=500)
-    description: str | None = None
-    runtime: str | None = Field(None, min_length=1, max_length=50)
-    capabilities: list[str] | None = None
-    resource_cpu_limit: str | None = Field(None, max_length=20)
-    resource_memory_limit: str | None = Field(None, max_length=20)
-
-
-class TemplateResponse(BaseModel):
-    id: str
-    name: str
-    image: str
-    description: str | None
-    runtime: str
-    capabilities: list[str] | None = None
-    resource_cpu_limit: str | None
-    resource_memory_limit: str | None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-    @field_validator("capabilities", mode="before")
-    @classmethod
-    def _parse_capabilities(cls, v):
-        if isinstance(v, str):
-            return json.loads(v)
-        return v
-
-
 # ─── Agent ──────────────────────────────────────────────────────
 
 class AgentCreate(BaseModel):
@@ -154,6 +110,8 @@ class AgentCreate(BaseModel):
     skill_ids: list[str] = Field(default_factory=list)
     env_defaults: dict[str, str] | None = None
     custom_config: dict[str, str] | None = None
+    resource_cpu_limit: str | None = Field(None, max_length=50)
+    resource_memory_limit: str | None = Field(None, max_length=50)
 
 
 class AgentUpdate(BaseModel):
@@ -164,6 +122,8 @@ class AgentUpdate(BaseModel):
     skill_ids: list[str] | None = None
     env_defaults: dict[str, str] | None = None
     custom_config: dict[str, str] | None = None
+    resource_cpu_limit: str | None = Field(None, max_length=50)
+    resource_memory_limit: str | None = Field(None, max_length=50)
 
 
 class AgentResponse(BaseModel):
@@ -175,6 +135,8 @@ class AgentResponse(BaseModel):
     domain_id: str
     env_defaults: dict[str, str] | None = None
     custom_config: dict[str, str] | None = None
+    resource_cpu_limit: str | None = None
+    resource_memory_limit: str | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -1,6 +1,6 @@
 """Unit tests for session API endpoints."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
