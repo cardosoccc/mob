@@ -53,6 +53,14 @@ pub fn build_agent_pod(ar: &Session) -> Result<Pod, Error> {
             value: Some(me.clone()),
             ..Default::default()
         });
+        // Inject LiteLLM proxy URL when model endpoint uses litellm: prefix
+        if me.starts_with("litellm:") {
+            env.push(EnvVar {
+                name: "LITELLM_BASE_URL".into(),
+                value: Some("http://mob-litellm:4000/v1".into()),
+                ..Default::default()
+            });
+        }
     }
 
     // Downward API: inject pod name and namespace so the agent can self-annotate
@@ -418,5 +426,75 @@ mod tests {
         assert_eq!(env_map.get("CUSTOM_VAR"), Some(&"hello"));
         assert_eq!(env_map.get("AGENT_CUSTOM_TEMPERATURE"), Some(&"0.7"));
         assert_eq!(env_map.get("SESSION_ID"), Some(&"test-env"));
+    }
+
+    #[test]
+    fn test_build_agent_pod_litellm_injects_base_url() {
+        use crate::crd::SessionSpec;
+
+        let mut ar = Session::new(
+            "test-litellm",
+            SessionSpec {
+                agent_id: "agent-789".into(),
+                agent_name: "litellm-agent".into(),
+                agent_template: "mob-agent-pydantic:latest".into(),
+                system_prompt: None,
+                model_endpoint: Some("litellm:claude-sonnet".into()),
+                task_id: None,
+                env_vars: None,
+                skills_configmap: None,
+                resource_cpu_limit: None,
+                resource_memory_limit: None,
+            },
+        );
+        ar.metadata.uid = Some("test-uid-litellm".into());
+
+        let pod = build_agent_pod(&ar).unwrap();
+        let container = &pod.spec.as_ref().unwrap().containers[0];
+        let env_map: std::collections::HashMap<&str, &str> = container
+            .env
+            .as_ref()
+            .unwrap()
+            .iter()
+            .filter_map(|e| e.value.as_deref().map(|v| (e.name.as_str(), v)))
+            .collect();
+
+        assert_eq!(env_map.get("MODEL_ENDPOINT"), Some(&"litellm:claude-sonnet"));
+        assert_eq!(env_map.get("LITELLM_BASE_URL"), Some(&"http://mob-litellm:4000/v1"));
+    }
+
+    #[test]
+    fn test_build_agent_pod_non_litellm_no_base_url() {
+        use crate::crd::SessionSpec;
+
+        let mut ar = Session::new(
+            "test-direct",
+            SessionSpec {
+                agent_id: "agent-direct".into(),
+                agent_name: "direct-agent".into(),
+                agent_template: "mob-agent-pydantic:latest".into(),
+                system_prompt: None,
+                model_endpoint: Some("anthropic:claude-sonnet-4-20250514".into()),
+                task_id: None,
+                env_vars: None,
+                skills_configmap: None,
+                resource_cpu_limit: None,
+                resource_memory_limit: None,
+            },
+        );
+        ar.metadata.uid = Some("test-uid-direct".into());
+
+        let pod = build_agent_pod(&ar).unwrap();
+        let container = &pod.spec.as_ref().unwrap().containers[0];
+        let env_names: Vec<&str> = container
+            .env
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|e| e.name.as_str())
+            .collect();
+
+        assert!(env_names.contains(&"MODEL_ENDPOINT"));
+        assert!(!env_names.contains(&"LITELLM_BASE_URL"));
     }
 }

@@ -7,6 +7,19 @@ from mob.cli.output import print_detail, print_success, print_table
 from mob.cli.resolver import agent_filters, resolve_ref
 
 
+def _warn_litellm_local(model_endpoint: str | None) -> None:
+    """Warn if litellm: endpoint is used in local mode."""
+    if model_endpoint and model_endpoint.startswith("litellm:"):
+        from mob.config import is_local_mode
+
+        if is_local_mode():
+            click.echo(
+                "Warning: litellm: model endpoints are not supported in local mode. "
+                "The LiteLLM proxy is only available in dev/staging/production.",
+                err=True,
+            )
+
+
 @click.command("agents")
 @agent_filters
 def agents(domain_id: str | None):
@@ -48,6 +61,7 @@ def _build_payload_from_yaml(yaml_path: str) -> dict:
     if spec.system_prompt:
         payload["system_prompt"] = spec.system_prompt
     if spec.model_endpoint:
+        _warn_litellm_local(spec.model_endpoint)
         payload["model_endpoint"] = spec.model_endpoint
     if spec.env:
         payload["env_defaults"] = spec.env
@@ -96,6 +110,7 @@ def agent_create(
         if system_prompt:
             payload["system_prompt"] = system_prompt
         if model_endpoint:
+            _warn_litellm_local(model_endpoint)
             payload["model_endpoint"] = model_endpoint
         if resource_cpu_limit:
             payload["resource_cpu_limit"] = resource_cpu_limit

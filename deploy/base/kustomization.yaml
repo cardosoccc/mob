@@ -14,6 +14,7 @@ resources:
   - operator/deployment.yaml
   - agent-rbac.yaml
   - api-rbac.yaml
+  - litellm/
 
 commonLabels:
   app.kubernetes.io/name: mob

@@ -12,3 +12,5 @@ commonLabels:
 patches:
   # Scale API to 0 — local mode doesn't need the API in K8s
   - path: patches/deployment.yaml
+  # Scale LiteLLM to 0 — not supported in local mode
+  - path: patches/litellm-deployment.yaml
