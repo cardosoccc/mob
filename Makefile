@@ -3,6 +3,7 @@
        local-rebuild-operator local-rebuild-agent \
        dev-up dev-down dev-status dev-logs dev-psql \
        dev-rebuild dev-rebuild-agent dev-reset \
+       dev-load-litellm dev-litellm-logs dev-litellm-restart \
        deploy-dev deploy-staging deploy-production \
        infra-init-aws infra-init-gcp \
        infra-plan-aws infra-plan-gcp \
@@ -22,6 +23,7 @@ SOCIAL_IMAGE := mob-agent-social
 PI_IMAGE := mob-agent-pi
 OPENCLAW_IMAGE := mob-agent-openclaw
 WEBHOOK_IMAGE := mob-webhook-gateway
+LITELLM_IMAGE := ghcr.io/berriai/litellm:main-v1.82.6
 KIND_CLUSTER := mob-local
 KIND_CTX := kind-$(KIND_CLUSTER)
 ENV ?= dev
@@ -145,6 +147,19 @@ dev-rebuild-agent: build-agent
 ## dev-reset: destroy and recreate dev environment
 dev-reset:
 	./scripts/dev-setup.sh reset
+
+## dev-load-litellm: pull and load LiteLLM image into Kind
+dev-load-litellm:
+	docker pull $(LITELLM_IMAGE)
+	kind load docker-image $(LITELLM_IMAGE) --name $(KIND_CLUSTER)
+
+## dev-litellm-logs: tail LiteLLM proxy logs
+dev-litellm-logs:
+	kubectl --context $(KIND_CTX) -n mob logs -f -l app.kubernetes.io/component=litellm
+
+## dev-litellm-restart: restart LiteLLM proxy deployment
+dev-litellm-restart:
+	kubectl --context $(KIND_CTX) -n mob rollout restart deployment/mob-litellm
 
 ## run: legacy alias for dev-up
 run: dev-up

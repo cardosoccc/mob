@@ -30,6 +30,8 @@ AGENT_NAME = os.environ.get("AGENT_NAME", "unnamed")
 SYSTEM_PROMPT = os.environ.get("AGENT_SYSTEM_PROMPT", "You are a helpful AI assistant.")
 MODEL_ENDPOINT = os.environ.get("MODEL_ENDPOINT", "openai:gpt-4o")
 AGENT_AUTH_TOKEN = os.environ.get("AGENT_AUTH_TOKEN", "")
+LITELLM_BASE_URL = os.environ.get("LITELLM_BASE_URL", "http://mob-litellm:4000/v1")
+LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
 
 # LLM call timeout in seconds
 LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "120"))
@@ -62,6 +64,23 @@ def _load_skills() -> str:
     return ""
 
 
+def _build_model(endpoint: str):
+    """Parse MODEL_ENDPOINT, routing litellm: prefix through the LiteLLM proxy."""
+    if endpoint.startswith("litellm:"):
+        model_name = endpoint[len("litellm:"):]
+        from pydantic_ai.models.openai import OpenAIChatModel
+        from pydantic_ai.providers.openai import OpenAIProvider
+
+        return OpenAIChatModel(
+            model_name,
+            provider=OpenAIProvider(
+                base_url=LITELLM_BASE_URL,
+                api_key=LITELLM_API_KEY,
+            ),
+        )
+    return endpoint
+
+
 def _get_agent() -> Agent:
     """Lazily build the pydantic-ai agent from environment configuration."""
     global _ai_agent
@@ -71,7 +90,7 @@ def _get_agent() -> Agent:
         if skills_context:
             full_prompt += skills_context
         _ai_agent = Agent(
-            MODEL_ENDPOINT,
+            _build_model(MODEL_ENDPOINT),
             instructions=full_prompt,
         )
         # Register integration tools if available

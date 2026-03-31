@@ -14,3 +14,6 @@ patches:
   - path: patches/ingress.yaml
   - path: patches/configmap.yaml
   - path: patches/secret.yaml
+  - path: patches/litellm-deployment.yaml
+  - path: patches/litellm-configmap.yaml
+  - path: patches/litellm-secret.yaml

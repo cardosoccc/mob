@@ -15,3 +15,5 @@ patches:
   - path: patches/configmap.yaml
   - path: patches/secret.yaml
   - path: patches/service-nodeport.yaml
+  - path: patches/litellm-configmap.yaml
+  - path: patches/litellm-secret.yaml
