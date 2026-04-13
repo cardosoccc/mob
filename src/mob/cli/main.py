@@ -14,6 +14,7 @@ from mob.cli.commands.env_cmd import env, envs
 from mob.cli.commands.init_cmd import init
 from mob.cli.commands.migrate_cmd import migrate
 from mob.cli.commands.server import serve
+from mob.cli.commands.tui_cmd import tui, tui_app
 
 
 @click.group()
@@ -44,6 +45,8 @@ cli.add_command(env)
 cli.add_command(init)
 cli.add_command(migrate)
 cli.add_command(serve)
+cli.add_command(tui)
+cli.add_command(tui_app)
 
 
 if __name__ == "__main__":
