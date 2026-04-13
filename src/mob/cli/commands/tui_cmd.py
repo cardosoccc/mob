@@ -38,7 +38,7 @@ def tui(ref):
     server = libtmux.Server()
     existing = server.sessions.get(session_name=SESSION_NAME, default=None)
     if existing is not None:
-        os.execvp("tmux", ["tmux", "attach-session", "-t", SESSION_NAME])
+        _switch_to_session(SESSION_NAME)
 
     session = server.new_session(session_name=SESSION_NAME, window_name="mob-tui")
     window = session.active_window
@@ -55,7 +55,20 @@ def tui(ref):
     left_pane.send_keys(f"{env_vars} mob tui-app", enter=True)
 
     left_pane.select()
-    os.execvp("tmux", ["tmux", "attach-session", "-t", SESSION_NAME])
+    _switch_to_session(SESSION_NAME)
+
+
+def _switch_to_session(session_name: str) -> None:
+    """Switch to a tmux session without nesting.
+
+    Uses switch-client when already inside tmux, attach-session otherwise.
+    Replaces the current process via execvp so the caller shell regains
+    control when the session is eventually detached or destroyed.
+    """
+    if os.environ.get("TMUX"):
+        os.execvp("tmux", ["tmux", "switch-client", "-t", session_name])
+    else:
+        os.execvp("tmux", ["tmux", "attach-session", "-t", session_name])
 
 
 @click.command("tui-app", hidden=True)
